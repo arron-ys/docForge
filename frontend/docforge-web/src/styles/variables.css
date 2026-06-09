@@ -1,0 +1,20 @@
+:root {
+  --df-bg: #eef2f7;
+  --df-panel: #f8fafc;
+  --df-chat-bg: #f5f7fb;
+  --df-surface: #ffffff;
+  --df-muted: #f3f6fa;
+  --df-border: #dce3ec;
+  --df-text: #1f2937;
+  --df-text-secondary: #64748b;
+  --df-primary: #2563eb;
+  --df-user-bubble: #eef5ff;
+  --df-success-border: #b7ebd1;
+  --df-info-border: #bfdbfe;
+  --df-warning-border: #f6d58f;
+  --df-warning-text: #9a6700;
+  --df-danger: #dc2626;
+  --df-radius-md: 10px;
+  --df-radius-lg: 14px;
+  --df-shadow-sm: 0 8px 20px rgba(15, 23, 42, 0.04);
+}

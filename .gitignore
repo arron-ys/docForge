@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# 环境变量（保留 example）
+.env
+
+# 本地临时文件和工具缓存
+.local/
+
+# 数据目录（runs 和 qdrant 持久化数据不入库）
+data/runs/
+data/qdrant/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# 测试 & 覆盖率
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Streamlit
+.streamlit/secrets.toml

@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { Camera, Collection, Document, Tickets } from "@element-plus/icons-vue";
+import { Collection, Document, Plus, Tickets } from "@element-plus/icons-vue";
 
 import SourceDropzoneCard from "@/components/SourceDropzoneCard.vue";
+import SourceListItem from "@/components/SourceListItem.vue";
 import type { SourceUploadType } from "@/api/sourceApi";
-import type { ExportArtifact, ParseStatus, SourceItem, SourceUsagePolicy } from "@/types/workspace";
+import type { ExportArtifact, FileType, SourceItem } from "@/types/workspace";
 
 const props = defineProps<{
   sources: SourceItem[];
   exportArtifacts: ExportArtifact[];
   downloadingArtifactId: string | null;
+  apiKeyConfigured: boolean;
 }>();
 
 defineEmits<{
@@ -18,207 +20,143 @@ defineEmits<{
   "open-upload": [uploadType: SourceUploadType];
 }>();
 
+const imageFileTypes = new Set<FileType>(["png", "jpg", "jpeg", "webp"]);
+
 const externalReferences = computed(() =>
   props.sources.filter((source) => source.sourceType === "reference_soft_copyright_doc"),
 );
-const ownProductSources = computed(() =>
-  props.sources.filter((source) => source.allowedUsage === "factual_evidence"),
+
+const productDocuments = computed(() =>
+  props.sources.filter(
+    (source) =>
+      source.allowedUsage === "factual_evidence" &&
+      source.sourceType !== "screenshot" &&
+      !imageFileTypes.has(source.fileType),
+  ),
 );
-const screenshots = computed(() => props.sources.filter((source) => source.sourceType === "screenshot"));
 
-type SourceStatusTone = "pending" | "parsed" | "failed" | "skipped" | "saved";
+const productImages = computed(() =>
+  props.sources.filter(
+    (source) =>
+      source.sourceType === "screenshot" ||
+      source.allowedUsage === "display_material_only" ||
+      imageFileTypes.has(source.fileType),
+  ),
+);
 
-const SOURCE_STATUS_META: Record<
-  ParseStatus,
-  {
-    label: string;
-    tagType: "info" | "success" | "warning" | "danger";
-    tone: SourceStatusTone;
-  }
-> = {
-  pending: {
-    label: "已上传，等待点击“开始解析资料”",
-    tagType: "info",
-    tone: "pending",
-  },
-  parsed: {
-    label: "解析完成",
-    tagType: "success",
-    tone: "parsed",
-  },
-  failed: {
-    label: "解析失败，点击查看原因",
-    tagType: "danger",
-    tone: "failed",
-  },
-  skipped: {
-    label: "已跳过解析",
-    tagType: "info",
-    tone: "skipped",
-  },
-  saved: {
-    label: "已上传，等待解析",
-    tagType: "info",
-    tone: "saved",
-  },
-};
-
-function sourceStatusMeta(source: SourceItem) {
-  return SOURCE_STATUS_META[source.parseStatus];
-}
-
-function sourceUsageCopy(source: SourceItem): SourceUsagePolicy {
-  if (source.allowedUsage === "style_only") {
-    return {
-      label: "外部参考资料",
-      allowedUse: "仅参考目录、章法、配图方式和语言风格",
-      riskBoundary: "不能作为产品事实来源",
-      badgeType: "warning",
-    };
-  }
-
-  if (source.allowedUsage === "factual_evidence") {
-    return {
-      label: "自有产品资料",
-      allowedUse: "可作为产品事实依据",
-      riskBoundary: "系统会基于证据提取能力、状态和置信度使用",
-      badgeType: "success",
-    };
-  }
-
-  if (source.allowedUsage === "display_material_only") {
-    return {
-      label: "产品截图",
-      allowedUse: "仅用于配图和展示",
-      riskBoundary: "不做 OCR，不作为产品事实证据",
-      badgeType: "info",
-    };
-  }
-
-  return source.usagePolicy;
-}
+const hasOwnProductSources = computed(
+  () => productDocuments.value.length > 0 || productImages.value.length > 0,
+);
 </script>
 
 <template>
   <aside class="left-panel" aria-label="资料与导出历史">
     <section class="left-panel__section">
-      <div class="section-title">
-        <el-icon><Collection /></el-icon>
-        外部参考资料
-      </div>
-      <button
-        v-for="source in externalReferences"
-        :key="source.sourceId"
-        class="source-card"
-        type="button"
-        @click="$emit('select-source', source)"
-      >
-        <span class="source-card__head">
-          <el-icon><Document /></el-icon>
-          <strong>{{ source.fileName }}</strong>
+      <div class="section-title section-title--with-action">
+        <span>
+          <el-icon><Collection /></el-icon>
+          外部参考资料
         </span>
-        <el-tag size="small" :type="sourceStatusMeta(source).tagType">
-          {{ sourceStatusMeta(source).label }}
-        </el-tag>
-        <span
-          v-if="source.parseStatus === 'pending' || source.parseStatus === 'failed'"
-          class="source-card__status"
-          :class="`source-card__status--${sourceStatusMeta(source).tone}`"
-          :title="source.parseStatus === 'failed' ? source.parseError ?? undefined : undefined"
+        <el-button
+          v-if="externalReferences.length > 0"
+          size="small"
+          link
+          :icon="Plus"
+          @click="$emit('open-upload', 'reference')"
         >
-          {{ sourceStatusMeta(source).label }}
-        </span>
-        <span class="source-card__policy">{{ sourceUsageCopy(source).allowedUse }}</span>
-        <span class="source-card__risk">{{ sourceUsageCopy(source).riskBoundary }}</span>
-      </button>
+          上传
+        </el-button>
+      </div>
+
       <SourceDropzoneCard
         v-if="externalReferences.length === 0"
         title="上传外部参考资料"
         description="用于参考软著目录、章节写法、配图方式和语言风格，不作为产品事实来源。"
+        compact
         @click="$emit('open-upload', 'reference')"
       />
+      <div v-else class="source-list">
+        <SourceListItem
+          v-for="source in externalReferences"
+          :key="source.sourceId"
+          :source="source"
+          variant="reference"
+          :api-key-configured="apiKeyConfigured"
+          @select="$emit('select-source', $event)"
+        />
+      </div>
     </section>
 
     <section class="left-panel__section">
-      <div class="section-title">
-        <el-icon><Tickets /></el-icon>
-        自有产品资料
-      </div>
-      <button
-        v-for="source in ownProductSources"
-        :key="source.sourceId"
-        class="source-card source-card--success"
-        type="button"
-        @click="$emit('select-source', source)"
-      >
-        <span class="source-card__head">
-          <el-icon><Document /></el-icon>
-          <strong>{{ source.fileName }}</strong>
+      <div class="section-title section-title--with-action">
+        <span>
+          <el-icon><Tickets /></el-icon>
+          自有产品资料
         </span>
-        <el-tag size="small" :type="sourceStatusMeta(source).tagType">
-          {{ sourceStatusMeta(source).label }}
-        </el-tag>
-        <span
-          v-if="source.parseStatus === 'pending' || source.parseStatus === 'failed'"
-          class="source-card__status"
-          :class="`source-card__status--${sourceStatusMeta(source).tone}`"
-          :title="source.parseStatus === 'failed' ? source.parseError ?? undefined : undefined"
+        <el-button
+          v-if="hasOwnProductSources"
+          size="small"
+          link
+          :icon="Plus"
+          @click="$emit('open-upload', 'product')"
         >
-          {{ sourceStatusMeta(source).label }}
-        </span>
-        <span class="source-card__policy">{{ sourceUsageCopy(source).allowedUse }}</span>
-        <span class="source-card__risk">{{ sourceUsageCopy(source).riskBoundary }}</span>
-      </button>
+          上传
+        </el-button>
+      </div>
+
       <SourceDropzoneCard
-        v-if="ownProductSources.length === 0"
+        v-if="!hasOwnProductSources"
         title="上传自有产品资料"
-        description="用于提取产品功能、技术架构和业务流程，是生成软著正文的事实依据。"
+        description="支持产品文档和产品截图。文档可作为产品事实依据；截图仅用于配图候选和展示，不作为事实证据。"
+        compact
         @click="$emit('open-upload', 'product')"
       />
-    </section>
 
-    <section class="left-panel__section">
-      <div class="section-title">
-        <el-icon><Camera /></el-icon>
-        产品截图
+      <div v-else class="source-groups">
+        <div class="source-group">
+          <div class="source-group__head">
+            <strong>产品文档</strong>
+            <span>用于提取产品功能、技术架构和业务流程，可作为生成软著正文的事实依据。</span>
+          </div>
+          <div v-if="productDocuments.length > 0" class="source-list">
+            <SourceListItem
+              v-for="source in productDocuments"
+              :key="source.sourceId"
+              :source="source"
+              variant="product-document"
+              :api-key-configured="apiKeyConfigured"
+              @select="$emit('select-source', $event)"
+            />
+          </div>
+          <p v-else class="source-group__empty">尚未上传产品文档。</p>
+        </div>
+
+        <div class="source-group">
+          <div class="source-group__head">
+            <strong>产品截图</strong>
+            <span>仅用于配图候选和展示，不做 OCR，不作为产品事实证据。</span>
+          </div>
+          <div v-if="productImages.length > 0" class="source-list">
+            <SourceListItem
+              v-for="source in productImages"
+              :key="source.sourceId"
+              :source="source"
+              variant="product-image"
+              :api-key-configured="apiKeyConfigured"
+              @select="$emit('select-source', $event)"
+            />
+          </div>
+          <p v-else class="source-group__empty">尚未上传产品截图。</p>
+        </div>
       </div>
-      <button
-        v-for="source in screenshots"
-        :key="source.sourceId"
-        class="source-card source-card--info"
-        type="button"
-        @click="$emit('select-source', source)"
-      >
-        <span class="source-card__head">
-          <el-icon><Camera /></el-icon>
-          <strong>{{ source.fileName }}</strong>
-        </span>
-        <el-tag size="small" :type="sourceStatusMeta(source).tagType">
-          {{ sourceStatusMeta(source).label }}
-        </el-tag>
-        <span
-          v-if="source.parseStatus === 'pending' || source.parseStatus === 'failed'"
-          class="source-card__status"
-          :class="`source-card__status--${sourceStatusMeta(source).tone}`"
-          :title="source.parseStatus === 'failed' ? source.parseError ?? undefined : undefined"
-        >
-          {{ sourceStatusMeta(source).label }}
-        </span>
-        <span class="source-card__policy">{{ sourceUsageCopy(source).allowedUse }}</span>
-        <span class="source-card__risk">{{ sourceUsageCopy(source).riskBoundary }}</span>
-      </button>
-      <SourceDropzoneCard
-        v-if="screenshots.length === 0"
-        title="上传产品截图"
-        description="仅作为配图候选和展示材料，不做 OCR，不作为产品事实证据。"
-        @click="$emit('open-upload', 'screenshots')"
-      />
     </section>
 
     <section class="left-panel__section">
       <div class="section-title">
-        <el-icon><Document /></el-icon>
-        生成产物 / 导出历史
+        <span>
+          <el-icon><Document /></el-icon>
+          生成产物 / 导出历史
+        </span>
       </div>
       <div class="artifact-list">
         <div v-for="artifact in exportArtifacts" :key="artifact.artifactId" class="artifact-item">
@@ -253,86 +191,70 @@ function sourceUsageCopy(source: SourceItem): SourceUsagePolicy {
 }
 
 .left-panel__section + .left-panel__section {
-  margin-top: 18px;
+  margin-top: 16px;
 }
 
 .section-title {
   display: flex;
   align-items: center;
-  gap: 7px;
   margin-bottom: 8px;
   color: var(--df-text-secondary);
   font-size: 13px;
   font-weight: 700;
 }
 
-.source-card {
-  display: grid;
-  width: 100%;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 12px;
-  text-align: left;
-  border: 1px solid var(--df-warning-border);
-  border-radius: var(--df-radius-md);
-  background: #fffaf0;
-  cursor: pointer;
-  transition:
-    border-color 0.16s ease,
-    box-shadow 0.16s ease;
-}
-
-.source-card:hover {
-  border-color: var(--df-primary);
-  box-shadow: var(--df-shadow-sm);
-}
-
-.source-card--success {
-  border-color: var(--df-success-border);
-  background: #f6fffb;
-}
-
-.source-card--info {
-  border-color: var(--df-info-border);
-  background: #f5f8ff;
-}
-
-.source-card__head {
-  display: flex;
-  align-items: flex-start;
+.section-title span {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
   gap: 7px;
-  color: var(--df-text);
-  font-size: 13px;
-  line-height: 1.35;
 }
 
-.source-card__policy,
-.source-card__risk,
-.source-card__status {
-  color: var(--df-text-secondary);
-  font-size: 12px;
-  line-height: 1.45;
+.section-title--with-action {
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.source-card__status {
+.source-list {
   display: grid;
   gap: 6px;
 }
 
-.source-card__status--parsed {
-  color: #047857;
+.source-groups {
+  display: grid;
+  gap: 10px;
 }
 
-.source-card__status--failed {
-  color: var(--df-danger);
+.source-group {
+  display: grid;
+  gap: 7px;
 }
 
-.source-card__status--pending {
-  color: #b45309;
+.source-group__head {
+  display: grid;
+  gap: 3px;
+  padding: 0 2px;
 }
 
-.source-card__risk {
-  color: var(--df-warning-text);
+.source-group__head strong {
+  color: var(--df-text);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.source-group__head span,
+.source-group__empty {
+  color: var(--df-text-secondary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.source-group__empty {
+  margin: 0;
+  padding: 8px 9px;
+  border: 1px dashed var(--df-border);
+  border-radius: var(--df-radius-md);
+  background: rgba(255, 255, 255, 0.58);
 }
 
 .artifact-list {
@@ -365,5 +287,4 @@ function sourceUsageCopy(source: SourceItem): SourceUsagePolicy {
   font-size: 12px;
   line-height: 1.5;
 }
-
 </style>

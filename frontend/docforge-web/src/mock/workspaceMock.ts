@@ -15,7 +15,7 @@ export const uploadMockAction: WorkspaceAction = {
   label: "上传资料",
   primary: false,
   disabled: false,
-  description: "打开上传弹窗，选择外部参考资料、自有产品资料或产品截图。",
+  description: "打开上传弹窗，选择外部参考资料或自有产品资料。",
 };
 
 export const exportEntryMockAction: WorkspaceAction = {
@@ -33,7 +33,7 @@ const primaryAction: WorkspaceAction = {
   label: "开始解析资料",
   primary: true,
   disabled: false,
-  description: "解析资料并识别参考资料、自有资料和截图的用途边界。",
+  description: "解析资料并识别参考资料、自有产品文档和产品截图的用途边界。",
 };
 
 export const workspaceMock: WorkspaceState = {
@@ -68,6 +68,31 @@ export const workspaceMock: WorkspaceState = {
       notes: "外部参考资料仅用于参考写法，不作为产品事实来源。",
       metadata: {
         pageCount: 42,
+        originalCategory: "reference_soft_copyright_doc",
+      },
+    },
+    {
+      sourceId: "source-external-reference-2",
+      runId: RUN_ID,
+      sourceType: "reference_soft_copyright_doc",
+      fileType: "docx",
+      corpusType: "reference_style",
+      allowedUsage: "style_only",
+      fileName: "软著用户操作手册目录结构参考.docx",
+      fileSize: 2_084_160,
+      uploadedAt: "2026-06-09T09:21:00+08:00",
+      parseStatus: "embedding",
+      parseError: null,
+      statusLabel: "解析中",
+      usagePolicy: {
+        label: "外部参考软著",
+        allowedUse: "仅参考目录、章法、配图方式和语言风格",
+        riskBoundary: "不能作为产品事实来源",
+        badgeType: "warning",
+      },
+      notes: "外部参考资料仅用于参考写法，不作为产品事实来源。",
+      metadata: {
+        pageCount: 18,
         originalCategory: "reference_soft_copyright_doc",
       },
     },
@@ -173,7 +198,7 @@ export const workspaceMock: WorkspaceState = {
         title: "Agent 已接收资料",
         summary: "资料已按用途边界完成归类。",
         counts: {
-          externalReferences: 1,
+          externalReferences: 2,
           productMaterials: 1,
           screenshots: 1,
         },

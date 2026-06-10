@@ -18,6 +18,12 @@ const taskLabel = computed(() => {
   const normalizedTaskName = props.run.taskName.replace(/^当前运行任务[:：]\s*/, "").trim();
   return `当前任务：${normalizedTaskName || props.run.runId}`;
 });
+
+const apiKeyTooltip = computed(() =>
+  props.apiKeyConfigured
+    ? "已保存运行时模型配置。后端模型调用将优先使用该配置。"
+    : "配置 LLM 和 Embedding 模型密钥。未配置时后端将尝试使用 .env 默认配置。",
+);
 </script>
 
 <template>
@@ -44,17 +50,14 @@ const taskLabel = computed(() => {
         <el-icon><Odometer /></el-icon>
         {{ run.healthLabel }}
       </el-tag>
-      <el-tooltip
-        content="配置 LLM 和 Embedding 模型密钥。当前版本仅完成前端配置界面，真实调用仍以后端服务配置为准。"
-        placement="bottom"
-      >
+      <el-tooltip :content="apiKeyTooltip" placement="bottom">
         <el-button
           :class="{ 'top-bar__key-button--warning': !apiKeyConfigured }"
           :icon="apiKeyConfigured ? Key : WarningFilled"
           :type="apiKeyConfigured ? 'primary' : 'warning'"
           @click="$emit('open-api-key-config')"
         >
-          {{ apiKeyConfigured ? "配置密钥" : "待配置密钥" }}
+          配置密钥
         </el-button>
       </el-tooltip>
     </div>

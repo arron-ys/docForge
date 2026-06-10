@@ -4,6 +4,10 @@ from functools import lru_cache
 
 from fastapi import Depends
 
+from docforge_core.config.runtime_model_config import (
+    RuntimeModelConfigService,
+    get_runtime_model_config_service,
+)
 from docforge_core.io.state_store import StateStore
 from docforge_core.workflow import WorkflowDiagnosticsService, WorkflowOrchestratorService
 
@@ -16,6 +20,10 @@ from .services.workspace_view_service import WorkspaceViewService
 @lru_cache(maxsize=1)
 def get_state_store() -> StateStore:
     return StateStore()
+
+
+def get_runtime_model_config_service_dep() -> RuntimeModelConfigService:
+    return get_runtime_model_config_service()
 
 
 def get_workspace_view_service(

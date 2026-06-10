@@ -448,7 +448,7 @@ function normalizeError(error: unknown): {
         recoverable: error.recoverable,
         suggestedAction:
           error.suggestedAction ||
-          "请确认上传类型与文件扩展名匹配：文档类使用 docx/pdf/md/txt/html，截图使用 png/jpg/jpeg/webp。",
+          "请确认上传类型与文件格式匹配：外部参考资料使用文档类文件；自有产品资料可选择产品文档或产品截图。",
       };
     }
     if (error.errorCode === "network_error") {

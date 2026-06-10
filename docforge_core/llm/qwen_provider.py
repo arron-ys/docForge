@@ -4,6 +4,10 @@ from typing import Any
 
 import httpx
 
+from docforge_core.config.runtime_model_config import (
+    RuntimeProviderConfig,
+    get_runtime_model_config_service,
+)
 from docforge_core.config.settings import Settings, get_settings
 
 from .base import LLMMessage, LLMProvider, LLMResponse, ProviderError
@@ -12,15 +16,24 @@ from .base import LLMMessage, LLMProvider, LLMResponse, ProviderError
 class QwenProvider(LLMProvider):
     provider_name = "qwen"
 
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        runtime_config: RuntimeProviderConfig | None = None,
+    ) -> None:
         self.settings = settings or get_settings()
-        self.api_key = self.settings.qwen_api_key
-        self.base_url = self.settings.qwen_base_url
-        self.model = self.settings.qwen_model
+        if runtime_config is None and settings is None:
+            candidate = get_runtime_model_config_service().get_llm_config()
+            if candidate and candidate.provider == "qwen":
+                runtime_config = candidate
+
+        self.api_key = runtime_config.api_key if runtime_config else self.settings.qwen_api_key
+        self.base_url = runtime_config.base_url if runtime_config else self.settings.qwen_base_url
+        self.model = runtime_config.model if runtime_config else self.settings.qwen_model
         if not self.api_key:
-            raise ValueError("QWEN_API_KEY 未配置")
+            raise ValueError("模型密钥未配置，请在右上角“配置密钥”中填写并测试连接")
         if not self.base_url:
-            raise ValueError("QWEN_BASE_URL 未配置")
+            raise ValueError("模型 BaseURL 未配置，请在右上角“配置密钥”中填写并测试连接")
 
     def generate_text(
         self,

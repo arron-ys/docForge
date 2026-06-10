@@ -7,8 +7,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from api.deps import get_state_store
+from api.deps import get_runtime_model_config_service_dep, get_state_store
 from api.main import app
+from docforge_core.config.runtime_model_config import RuntimeModelConfigService
 from docforge_core.domain.enums import (
     AllowedUsage,
     CorpusType,
@@ -27,7 +28,9 @@ from docforge_core.io.state_store import StateStore
 @pytest.fixture()
 def api_client(tmp_path: Path) -> Generator[tuple[TestClient, StateStore]]:
     store = StateStore(data_dir=tmp_path)
+    model_config_service = RuntimeModelConfigService(tmp_path / "model_config.json")
     app.dependency_overrides[get_state_store] = lambda: store
+    app.dependency_overrides[get_runtime_model_config_service_dep] = lambda: model_config_service
     try:
         yield TestClient(app), store
     finally:
@@ -206,6 +209,100 @@ def test_diagnostics_api_uses_existing_diagnostics_service(
     assert payload["stage_label"] == "项目已创建，等待上传资料"
     assert "health_label" in payload
     assert "severity_counts" in payload
+
+
+def test_model_config_api_saves_and_returns_masked_keys(
+    api_client: tuple[TestClient, StateStore],
+) -> None:
+    client, _store = api_client
+
+    response = client.post(
+        "/api/model-config",
+        json={
+            "llm": {
+                "provider": "qwen",
+                "model": "qwen-plus",
+                "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "api_key": "unit-llm-secret-12345678",
+            },
+            "embedding": {
+                "provider": "jina",
+                "model": "jina-embeddings-v3",
+                "base_url": "https://api.jina.ai/v1",
+                "api_key": "unit-embedding-secret-87654321",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["llm"]["has_api_key"] is True
+    assert payload["llm"]["masked_api_key"] == "unit****5678"
+    assert "unit-llm-secret-12345678" not in response.text
+    assert payload["embedding"]["masked_api_key"] == "unit****4321"
+
+    get_response = client.get("/api/model-config")
+
+    assert get_response.status_code == 200
+    assert "unit-embedding-secret-87654321" not in get_response.text
+    assert get_response.json()["embedding"]["has_api_key"] is True
+
+
+def test_model_config_api_empty_key_preserves_existing_key(
+    api_client: tuple[TestClient, StateStore],
+) -> None:
+    client, _store = api_client
+    client.post(
+        "/api/model-config",
+        json={
+            "llm": {
+                "provider": "qwen",
+                "model": "qwen-plus",
+                "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "api_key": "unit-existing-llm-secret",
+            },
+        },
+    )
+
+    response = client.post(
+        "/api/model-config",
+        json={
+            "llm": {
+                "provider": "qwen",
+                "model": "qwen-max",
+                "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "api_key": "",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["llm"]["model"] == "qwen-max"
+    assert payload["llm"]["has_api_key"] is True
+    assert payload["llm"]["masked_api_key"] == "unit****cret"
+
+
+def test_model_config_test_api_without_key_returns_readable_error(
+    api_client: tuple[TestClient, StateStore],
+) -> None:
+    client, _store = api_client
+
+    response = client.post(
+        "/api/model-config/test-llm",
+        json={
+            "provider": "qwen",
+            "model": "qwen-plus",
+            "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "api_key": "",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["verified"] is False
+    assert payload["error_code"] == "missing_api_key"
+    assert "API Key" in payload["message"]
 
 
 @pytest.mark.parametrize(

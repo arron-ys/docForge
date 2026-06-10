@@ -144,3 +144,47 @@ export interface ActionResultApi {
   message: string;
   workspace: WorkspaceApi | null;
 }
+
+export interface ModelProviderConfigApi {
+  provider: string;
+  model: string;
+  base_url: string;
+  has_api_key: boolean;
+  masked_api_key: string | null;
+  verified: boolean;
+  last_verified_at: string | null;
+}
+
+export interface ModelConfigApi {
+  llm: ModelProviderConfigApi | null;
+  embedding: ModelProviderConfigApi | null;
+}
+
+export interface ModelProviderConfigPayloadApi {
+  provider: string;
+  model: string;
+  base_url: string;
+  api_key?: string | null;
+  clear_api_key?: boolean;
+  verified?: boolean | null;
+  last_verified_at?: string | null;
+}
+
+export interface SaveModelConfigPayloadApi {
+  llm?: ModelProviderConfigPayloadApi | null;
+  embedding?: ModelProviderConfigPayloadApi | null;
+}
+
+export interface TestModelConnectionPayloadApi {
+  provider: string;
+  model: string;
+  base_url: string;
+  api_key?: string | null;
+}
+
+export interface TestModelConnectionResultApi {
+  verified: boolean;
+  message: string;
+  error_code: string | null;
+  last_verified_at: string | null;
+}

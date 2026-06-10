@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { DataAnalysis, Finished, Key, Setting, Warning } from "@element-plus/icons-vue";
+import { DataAnalysis, Finished, Setting, Warning } from "@element-plus/icons-vue";
 
 import type {
   DiagnosticSummary,
@@ -13,7 +13,6 @@ import type {
 const props = defineProps<{
   settings: WorkspaceSettings;
   diagnostics: DiagnosticSummary;
-  apiKeyConfigured: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -40,20 +39,6 @@ const referenceStyleStrength = computed({
 
 <template>
   <aside class="right-panel" aria-label="运行设置、产品约束和诊断状态">
-    <section class="settings-card settings-card--notice">
-      <div class="settings-card__title">
-        <el-icon><Key /></el-icon>
-        模型密钥状态
-      </div>
-      <p class="hint-text hint-text--inline">
-        {{
-          apiKeyConfigured
-            ? "模型密钥已在当前页面填写。当前版本真实调用仍以后端服务配置为准。"
-            : "尚未配置模型密钥。请先点击右上角“配置密钥”，否则真实模型调用需要依赖后端服务配置。"
-        }}
-      </p>
-    </section>
-
     <section class="settings-card">
       <div class="settings-card__title">
         <el-icon><Setting /></el-icon>
@@ -174,11 +159,6 @@ const referenceStyleStrength = computed({
   margin-top: 12px;
 }
 
-.settings-card--notice {
-  border-color: #bfdbfe;
-  background: #f8fbff;
-}
-
 .settings-card__title {
   display: flex;
   align-items: center;
@@ -219,10 +199,6 @@ const referenceStyleStrength = computed({
 .hint-text--strong {
   margin-top: 0;
   color: var(--df-text);
-}
-
-.hint-text--inline {
-  margin-top: 0;
 }
 
 .risk-policy,

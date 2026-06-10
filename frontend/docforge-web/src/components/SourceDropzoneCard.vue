@@ -4,6 +4,7 @@ import { Plus } from "@element-plus/icons-vue";
 defineProps<{
   title: string;
   description: string;
+  compact?: boolean;
 }>();
 
 defineEmits<{
@@ -12,7 +13,7 @@ defineEmits<{
 </script>
 
 <template>
-  <button class="source-dropzone" type="button" @click="$emit('click')">
+  <button class="source-dropzone" :class="{ 'source-dropzone--compact': compact }" type="button" @click="$emit('click')">
     <span class="source-dropzone__icon">
       <el-icon><Plus /></el-icon>
     </span>
@@ -68,5 +69,17 @@ defineEmits<{
   max-width: 240px;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.source-dropzone--compact {
+  min-height: 104px;
+  gap: 6px;
+  padding: 14px 12px;
+}
+
+.source-dropzone--compact .source-dropzone__icon {
+  width: 30px;
+  height: 30px;
+  font-size: 16px;
 }
 </style>

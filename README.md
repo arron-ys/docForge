@@ -117,7 +117,10 @@ v0.1 真实 API 模式需要同时启动 FastAPI 和 Vue 前端。打开 `http:/
 
 ## API / Mock 模式
 
-后端 provider 可在根目录 `.env` 中配置：
+后端 provider 可通过两种方式配置：
+
+1. 工作台右上角“配置密钥”：保存为本机运行时模型配置，优先级最高。
+2. 根目录 `.env`：作为 fallback，适合开发和 CI 环境。
 
 ```bash
 cp .env.example .env
@@ -135,9 +138,17 @@ DEFAULT_EMBEDDING_PROVIDER=mock
 ```dotenv
 DEFAULT_LLM_PROVIDER=qwen
 DEFAULT_EMBEDDING_PROVIDER=jina
+QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 QWEN_API_KEY=你的_Qwen_API_Key
 JINA_API_KEY=你的_Jina_API_Key
 ```
+
+运行时配置保存位置：
+
+- macOS / Linux：`~/.docforge/model_config.json`
+- Windows：`%APPDATA%/DocForge/model_config.json`
+
+v0.1 本地单机版允许该文件明文保存 API Key，只用于本机试用，不是生产级密钥托管方案。后续生产化应接入系统 Keychain、KMS 或用户级加密存储。不要把真实 API Key、运行时配置文件或 `.env` 提交到 git。
 
 前端配置位于 `frontend/docforge-web/.env`：
 

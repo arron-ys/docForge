@@ -17,10 +17,13 @@ const emit = defineEmits<{
   submit: [payload: { uploadType: SourceUploadType; file: File }];
 }>();
 
-const DOCUMENT_ACCEPT = ".docx,.pdf,.md,.txt,.html";
-const SCREENSHOT_ACCEPT = ".png,.jpg,.jpeg,.webp";
+type UploadCategory = "reference" | "product";
+
+const REFERENCE_ACCEPT = ".doc,.docx,.pdf,.md,.txt,.html";
+const PRODUCT_ACCEPT = ".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,.md,.txt,.html,.png,.jpg,.jpeg,.webp";
+const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 const UPLOAD_TYPE_META: Record<
-  SourceUploadType,
+  UploadCategory,
   {
     title: string;
     description: string;
@@ -35,32 +38,23 @@ const UPLOAD_TYPE_META: Record<
     title: "上传外部参考资料",
     description: "用于目录结构、章法、配图方式和语言风格参考，不作为产品事实来源。",
     alertType: "warning",
-    fileHint: "支持 docx、pdf、md、txt、html",
-    accept: DOCUMENT_ACCEPT,
+    fileHint: "支持 doc、docx、pdf、md、txt、html",
+    accept: REFERENCE_ACCEPT,
     boundary: "仅参考目录、章法、配图方式和语言风格，不能作为产品事实来源。",
     tip: "请上传外部参考软著或相似文档。系统会隔离为风格参考，不进入产品事实依据。",
   },
   product: {
     title: "上传自有产品资料",
-    description: "用于提取产品功能、技术架构和业务流程，是生成软著正文的事实依据。",
+    description: "支持产品文档和产品截图。文档可作为产品事实依据；图片仅作为配图候选和展示。",
     alertType: "success",
-    fileHint: "支持 docx、pdf、md、txt、html",
-    accept: DOCUMENT_ACCEPT,
-    boundary: "可作为产品事实依据，系统会基于证据提取能力、状态和置信度使用。",
-    tip: "请上传我方产品介绍、PRD、设计说明等资料。系统会按当前任务步骤处理解析和推进。",
-  },
-  screenshots: {
-    title: "上传产品截图",
-    description: "仅作为配图候选和展示材料，不做 OCR，不作为产品事实证据。",
-    alertType: "info",
-    fileHint: "支持 png、jpg、jpeg、webp",
-    accept: SCREENSHOT_ACCEPT,
-    boundary: "仅用于配图和展示，不做 OCR，不作为产品事实证据。",
-    tip: "截图仅作为配图候选和展示材料，不做 OCR，不作为产品事实证据。",
+    fileHint: "支持 doc、docx、xls、xlsx、ppt、pptx、pdf、md、txt、html、png、jpg、jpeg、webp",
+    accept: PRODUCT_ACCEPT,
+    boundary: "文档类资料可作为产品事实依据；图片仅作为配图候选和展示，不做 OCR，不作为产品事实证据。",
+    tip: "请上传我方产品文档或产品截图。系统会根据文件格式在自有产品资料中区分产品文档和产品截图。",
   },
 };
 
-const uploadType = ref<SourceUploadType>("reference");
+const uploadType = ref<UploadCategory>("reference");
 const selectedFile = ref<File | null>(null);
 const uploadRef = ref<UploadInstance>();
 
@@ -77,7 +71,7 @@ function submitUpload() {
   }
 
   emit("submit", {
-    uploadType: uploadType.value,
+    uploadType: resolveSubmitUploadType(uploadType.value, selectedFile.value),
     file: selectedFile.value,
   });
 }
@@ -99,6 +93,22 @@ function fileMatchesAccept(file: File, accept: string): boolean {
     .some((extension) => fileName.endsWith(extension));
 }
 
+function fileExtension(file: File): string {
+  const match = file.name.toLowerCase().match(/\.[^.]+$/);
+  return match?.[0] ?? "";
+}
+
+function resolveSubmitUploadType(uploadCategory: UploadCategory, file: File): SourceUploadType {
+  if (uploadCategory === "product" && IMAGE_EXTENSIONS.has(fileExtension(file))) {
+    return "screenshots";
+  }
+  return uploadCategory;
+}
+
+function categoryFromActiveType(uploadType?: SourceUploadType): UploadCategory {
+  return uploadType === "product" || uploadType === "screenshots" ? "product" : "reference";
+}
+
 function closeDialog() {
   if (!props.uploading) {
     emit("update:modelValue", false);
@@ -109,7 +119,7 @@ watch(
   () => props.modelValue,
   (visible) => {
     if (visible) {
-      uploadType.value = props.activeUploadType ?? "reference";
+      uploadType.value = categoryFromActiveType(props.activeUploadType);
       clearSelectedFile();
       return;
     }
@@ -122,7 +132,7 @@ watch(
   () => props.activeUploadType,
   (activeUploadType) => {
     if (props.modelValue && activeUploadType) {
-      uploadType.value = activeUploadType;
+      uploadType.value = categoryFromActiveType(activeUploadType);
     }
   },
 );
@@ -156,7 +166,6 @@ watch(uploadType, () => {
       <el-radio-group v-model="uploadType" class="upload-dialog__types" :disabled="disabled || uploading">
         <el-radio-button value="reference">外部参考资料</el-radio-button>
         <el-radio-button value="product">自有产品资料</el-radio-button>
-        <el-radio-button value="screenshots">产品截图</el-radio-button>
       </el-radio-group>
 
       <el-alert

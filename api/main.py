@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .errors import ApiError
-from .routers import artifacts, diagnostics, runs, sources, workspace
+from .routers import artifacts, diagnostics, model_config, runs, sources, workspace
 from .schemas import ApiErrorResponse
 
 app = FastAPI(title="DocForge API", version="0.1.0")
@@ -35,9 +35,9 @@ app.include_router(sources.router, prefix="/api")
 app.include_router(runs.router, prefix="/api")
 app.include_router(diagnostics.router, prefix="/api")
 app.include_router(artifacts.router, prefix="/api")
+app.include_router(model_config.router, prefix="/api")
 
 
 @app.get("/healthz")
 def healthz() -> dict[str, str]:
     return {"status": "ok"}
-

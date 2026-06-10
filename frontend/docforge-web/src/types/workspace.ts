@@ -25,7 +25,14 @@ export type CorpusType = "reference_style" | "product_evidence";
 
 export type AllowedUsage = "style_only" | "factual_evidence" | "display_material_only";
 
-export type ParseStatus = "pending" | "parsed" | "failed" | "skipped" | "saved";
+export type ParseStatus =
+  | "pending"
+  | "parsing"
+  | "embedding"
+  | "parsed"
+  | "failed"
+  | "skipped"
+  | "saved";
 
 export interface SourceUsagePolicy {
   label: string;
@@ -254,17 +261,6 @@ export type DocOutputType =
   | "technical_design";
 
 export type ReferenceStyleStrength = "weak" | "medium" | "strong";
-
-export type LlmModelOption = "qwen" | "deepseek";
-
-export type EmbeddingModelOption = "jina";
-
-export interface ApiKeyConfigState {
-  llmModel: LlmModelOption;
-  llmApiKey: string;
-  embeddingModel: EmbeddingModelOption;
-  embeddingApiKey: string;
-}
 
 export interface WorkspaceSettings {
   productTypeHint: ProductTypeOption;

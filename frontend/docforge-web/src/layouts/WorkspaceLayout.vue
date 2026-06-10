@@ -58,6 +58,7 @@ function findUploadAction(actions: WorkspaceAction[]): WorkspaceAction | undefin
         :sources="workspace.sources"
         :export-artifacts="workspace.exportArtifacts"
         :downloading-artifact-id="downloadingArtifactId"
+        :api-key-configured="apiKeyConfigured"
         @select-source="$emit('select-source', $event)"
         @open-upload="$emit('open-upload', $event)"
         @download-artifact="$emit('download-artifact', $event)"
@@ -73,7 +74,6 @@ function findUploadAction(actions: WorkspaceAction[]): WorkspaceAction | undefin
       <RightSettingsPanel
         :settings="workspace.settings"
         :diagnostics="workspace.diagnostics"
-        :api-key-configured="apiKeyConfigured"
         @update-product-type="$emit('update-product-type', $event)"
         @update-output-type="$emit('update-output-type', $event)"
         @update-reference-strength="$emit('update-reference-strength', $event)"

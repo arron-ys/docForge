@@ -294,7 +294,13 @@ def _source_item(
         CorpusType.REFERENCE_STYLE if is_reference_source else CorpusType.PRODUCT_EVIDENCE
     )
     allowed_usage = (
-        AllowedUsage.STYLE_ONLY if is_reference_source else AllowedUsage.FACTUAL_EVIDENCE
+        AllowedUsage.STYLE_ONLY
+        if is_reference_source
+        else (
+            AllowedUsage.DISPLAY_MATERIAL_ONLY
+            if source_type == SourceType.SCREENSHOT
+            else AllowedUsage.FACTUAL_EVIDENCE
+        )
     )
     return SourceItem(
         source_id=source_id,

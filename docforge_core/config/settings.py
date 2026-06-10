@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     # Jina Embedding
     jina_api_key: str = ""
     jina_embedding_model: str = "jina-embeddings-v3"
+    jina_base_url: str = "https://api.jina.ai/v1"
 
     # 生成参数
     max_revision_round: int = 3

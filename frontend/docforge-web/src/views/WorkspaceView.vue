@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
+import { getModelConfig } from "@/api/modelConfig";
 import ApiKeyConfigDialog from "@/components/ApiKeyConfigDialog.vue";
 import SourceUploadDialog from "@/components/SourceUploadDialog.vue";
 import WorkspaceEmptyState from "@/components/WorkspaceEmptyState.vue";
 import WorkspaceLayout from "@/layouts/WorkspaceLayout.vue";
+import { useMockApi } from "@/api/httpClient";
 import { useWorkspaceStore } from "@/stores/workspace";
 import type { SourceUploadType } from "@/api/sourceApi";
-import type { AgentCardAction, ApiKeyConfigState, WorkspaceAction } from "@/types/workspace";
+import type { ModelConfigApi } from "@/api/apiTypes";
+import type { AgentCardAction, WorkspaceAction } from "@/types/workspace";
 
 const workspaceStore = useWorkspaceStore();
 const route = useRoute();
@@ -17,16 +20,11 @@ const workspace = computed(() => workspaceStore.workspace);
 const uploadDialogVisible = ref(false);
 const activeUploadType = ref<SourceUploadType>("reference");
 const apiKeyDialogVisible = ref(false);
-const apiKeyConfig = ref<ApiKeyConfigState>({
-  llmModel: "qwen",
-  llmApiKey: "",
-  embeddingModel: "jina",
-  embeddingApiKey: "",
-});
+const modelConfig = ref<ModelConfigApi | null>(null);
 const apiKeyConfigured = computed(
   () =>
-    apiKeyConfig.value.llmApiKey.trim().length > 0 &&
-    apiKeyConfig.value.embeddingApiKey.trim().length > 0,
+    Boolean(modelConfig.value?.llm?.has_api_key) &&
+    Boolean(modelConfig.value?.embedding?.has_api_key),
 );
 
 const queryRunId = computed(() => {
@@ -72,9 +70,20 @@ async function submitUpload(payload: { uploadType: SourceUploadType; file: File 
   }
 }
 
-function saveApiKeyConfig(config: ApiKeyConfigState) {
-  apiKeyConfig.value = { ...config };
+async function refreshModelConfig() {
+  if (useMockApi) {
+    return;
+  }
+  try {
+    modelConfig.value = await getModelConfig();
+  } catch {
+    modelConfig.value = null;
+  }
 }
+
+onMounted(() => {
+  void refreshModelConfig();
+});
 </script>
 
 <template>
@@ -104,8 +113,7 @@ function saveApiKeyConfig(config: ApiKeyConfigState) {
     />
     <ApiKeyConfigDialog
       v-model="apiKeyDialogVisible"
-      :config="apiKeyConfig"
-      @save="saveApiKeyConfig"
+      @saved="modelConfig = $event"
     />
   </template>
   <div v-else-if="workspaceStore.emptyReason" class="workspace-loading">

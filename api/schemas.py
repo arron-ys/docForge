@@ -177,3 +177,47 @@ class ArtifactDownloadInfo(BaseModel):
     media_type: str = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
     model_config = ConfigDict(extra="forbid")
+
+
+class ModelProviderConfigView(BaseModel):
+    provider: str
+    model: str
+    base_url: str
+    has_api_key: bool = False
+    masked_api_key: str | None = None
+    verified: bool = False
+    last_verified_at: str | None = None
+
+
+class ModelConfigView(BaseModel):
+    llm: ModelProviderConfigView | None = None
+    embedding: ModelProviderConfigView | None = None
+
+
+class ModelProviderConfigPayload(BaseModel):
+    provider: str
+    model: str
+    base_url: str
+    api_key: str | None = None
+    clear_api_key: bool = False
+    verified: bool | None = None
+    last_verified_at: str | None = None
+
+
+class SaveModelConfigRequest(BaseModel):
+    llm: ModelProviderConfigPayload | None = None
+    embedding: ModelProviderConfigPayload | None = None
+
+
+class TestModelConnectionRequest(BaseModel):
+    provider: str
+    model: str
+    base_url: str
+    api_key: str | None = None
+
+
+class TestModelConnectionResponse(BaseModel):
+    verified: bool
+    message: str
+    error_code: str | None = None
+    last_verified_at: str | None = None

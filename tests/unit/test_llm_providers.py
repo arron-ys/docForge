@@ -1,6 +1,9 @@
 
 import pytest
 
+import docforge_core.llm.provider_factory as llm_provider_factory
+import docforge_core.llm.qwen_provider as qwen_provider_module
+from docforge_core.config.runtime_model_config import RuntimeProviderConfig
 from docforge_core.config.settings import Settings
 from docforge_core.llm.base import LLMMessage, LLMProvider, LLMResponse
 from docforge_core.llm.deepseek_provider import DeepSeekProvider
@@ -95,7 +98,7 @@ def test_provider_factory_unknown_provider_raises_value_error() -> None:
 
 
 def test_qwen_provider_missing_api_key_raises_clear_error() -> None:
-    with pytest.raises(ValueError, match="QWEN_API_KEY"):
+    with pytest.raises(ValueError, match="模型密钥未配置"):
         QwenProvider(Settings(qwen_api_key="", qwen_base_url="https://example.com"))
 
 
@@ -108,3 +111,92 @@ def test_llm_provider_tests_do_not_require_network() -> None:
     provider = MockLLMProvider(text_response="offline")
     response = provider.generate_text([LLMMessage(role="user", content="hello")])
     assert response.content == "offline"
+
+
+def test_llm_provider_factory_prefers_runtime_qwen_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    runtime_config = RuntimeProviderConfig(
+        provider="qwen",
+        model="qwen-max",
+        base_url="https://runtime.example/v1",
+        api_key="runtime-key",
+    )
+
+    class RuntimeService:
+        def get_llm_config(self) -> RuntimeProviderConfig:
+            return runtime_config
+
+    monkeypatch.setattr(
+        llm_provider_factory,
+        "get_runtime_model_config_service",
+        lambda: RuntimeService(),
+    )
+    monkeypatch.setattr(
+        llm_provider_factory,
+        "get_settings",
+        lambda: Settings(
+            default_llm_provider="qwen",
+            qwen_api_key="env-key",
+            qwen_base_url="https://env.example/v1",
+            qwen_model="qwen-plus",
+        ),
+    )
+
+    provider = create_llm_provider()
+    explicit_settings_provider = create_llm_provider(
+        Settings(
+            default_llm_provider="qwen",
+            qwen_api_key="env-key",
+            qwen_base_url="https://env.example/v1",
+            qwen_model="qwen-plus",
+        )
+    )
+
+    assert isinstance(provider, QwenProvider)
+    assert provider.api_key == "runtime-key"
+    assert provider.model == "qwen-max"
+    assert provider.base_url == "https://runtime.example/v1"
+    assert explicit_settings_provider.base_url == "https://env.example/v1"
+
+
+def test_qwen_provider_default_constructor_prefers_runtime_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime_config = RuntimeProviderConfig(
+        provider="qwen",
+        model="qwen-max",
+        base_url="https://runtime.example/v1",
+        api_key="runtime-key",
+    )
+
+    class RuntimeService:
+        def get_llm_config(self) -> RuntimeProviderConfig:
+            return runtime_config
+
+    monkeypatch.setattr(
+        qwen_provider_module,
+        "get_runtime_model_config_service",
+        lambda: RuntimeService(),
+    )
+    monkeypatch.setattr(
+        qwen_provider_module,
+        "get_settings",
+        lambda: Settings(
+            default_llm_provider="qwen",
+            qwen_api_key="env-key",
+            qwen_base_url="https://env.example/v1",
+            qwen_model="qwen-plus",
+        ),
+    )
+
+    provider = QwenProvider()
+    explicit_settings_provider = QwenProvider(
+        Settings(
+            qwen_api_key="env-key",
+            qwen_base_url="https://env.example/v1",
+            qwen_model="qwen-plus",
+        )
+    )
+
+    assert provider.api_key == "runtime-key"
+    assert provider.model == "qwen-max"
+    assert explicit_settings_provider.api_key == "env-key"

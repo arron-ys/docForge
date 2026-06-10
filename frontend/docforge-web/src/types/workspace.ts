@@ -70,6 +70,15 @@ export interface RunSummary {
   healthTone: "success" | "warning" | "danger" | "info";
 }
 
+export interface RunListItem {
+  runId: string;
+  projectName: string;
+  taskName: string;
+  stageLabel: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type AgentActionType =
   | "open_upload"
   | "parse_sources"
@@ -245,6 +254,17 @@ export type DocOutputType =
   | "technical_design";
 
 export type ReferenceStyleStrength = "weak" | "medium" | "strong";
+
+export type LlmModelOption = "qwen" | "deepseek";
+
+export type EmbeddingModelOption = "jina";
+
+export interface ApiKeyConfigState {
+  llmModel: LlmModelOption;
+  llmApiKey: string;
+  embeddingModel: EmbeddingModelOption;
+  embeddingApiKey: string;
+}
 
 export interface WorkspaceSettings {
   productTypeHint: ProductTypeOption;

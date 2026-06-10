@@ -1,18 +1,23 @@
 <script setup lang="ts">
-import { Download, Monitor, Odometer, Pointer } from "@element-plus/icons-vue";
+import { computed } from "vue";
+import { Key, Monitor, Odometer, Pointer, WarningFilled } from "@element-plus/icons-vue";
 
 import type { RunSummary, WorkspaceAction } from "@/types/workspace";
 
-defineProps<{
+const props = defineProps<{
   run: RunSummary;
-  exportAction?: WorkspaceAction;
   primaryAction?: WorkspaceAction;
-  sending: boolean;
+  apiKeyConfigured: boolean;
 }>();
 
 defineEmits<{
-  "trigger-action": [action: WorkspaceAction];
+  "open-api-key-config": [];
 }>();
+
+const taskLabel = computed(() => {
+  const normalizedTaskName = props.run.taskName.replace(/^当前运行任务[:：]\s*/, "").trim();
+  return `当前任务：${normalizedTaskName || props.run.runId}`;
+});
 </script>
 
 <template>
@@ -22,7 +27,7 @@ defineEmits<{
       <div>
         <h1>墨衡 DocForge</h1>
         <p>{{ run.projectName }}</p>
-        <span class="top-bar__task">{{ run.taskName }}</span>
+        <span class="top-bar__task">{{ taskLabel }}</span>
       </div>
     </div>
 
@@ -40,18 +45,16 @@ defineEmits<{
         {{ run.healthLabel }}
       </el-tag>
       <el-tooltip
-        :disabled="!exportAction?.disabled"
-        :content="exportAction?.description"
+        content="配置 LLM 和 Embedding 模型密钥。当前版本仅完成前端配置界面，真实调用仍以后端服务配置为准。"
         placement="bottom"
       >
         <el-button
-          type="primary"
-          :icon="Download"
-          :loading="sending"
-          :disabled="!exportAction || exportAction.disabled"
-          @click="exportAction && $emit('trigger-action', exportAction)"
+          :class="{ 'top-bar__key-button--warning': !apiKeyConfigured }"
+          :icon="apiKeyConfigured ? Key : WarningFilled"
+          :type="apiKeyConfigured ? 'primary' : 'warning'"
+          @click="$emit('open-api-key-config')"
         >
-          {{ exportAction?.label ?? "导出入口" }}
+          {{ apiKeyConfigured ? "配置密钥" : "待配置密钥" }}
         </el-button>
       </el-tooltip>
     </div>
@@ -126,5 +129,19 @@ defineEmits<{
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+.top-bar__key-button--warning {
+  border-color: #f59e0b;
+  background: #f59e0b;
+  color: #fff;
+  font-weight: 700;
+}
+
+.top-bar__key-button--warning:hover,
+.top-bar__key-button--warning:focus {
+  border-color: #d97706;
+  background: #d97706;
+  color: #fff;
 }
 </style>

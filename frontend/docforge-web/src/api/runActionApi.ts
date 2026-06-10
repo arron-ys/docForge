@@ -73,7 +73,7 @@ function endpointForAction(actionType: string): string {
   if (actionType === "confirm_doc_plan" || actionType === "confirm-doc-plan") {
     return "confirm-doc-plan";
   }
-  throw new Error("当前按钮尚未接入后端 Action API，请刷新工作台后选择当前可执行动作。");
+  throw new Error("当前按钮尚未接入后端执行流程，请刷新工作台后选择当前可执行动作。");
 }
 
 function requestPayloadForEndpoint(endpoint: string): Record<string, unknown> {

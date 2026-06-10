@@ -9,6 +9,7 @@ const props = defineProps<{
   modelValue: boolean;
   uploading: boolean;
   disabled: boolean;
+  activeUploadType?: SourceUploadType;
 }>();
 
 const emit = defineEmits<{
@@ -26,37 +27,36 @@ const UPLOAD_TYPE_META: Record<
     alertType: "info" | "success" | "warning";
     fileHint: string;
     accept: string;
-    factBoundary: string;
+    boundary: string;
     tip: string;
   }
 > = {
   reference: {
-    title: "外部参考资料只学习写法",
+    title: "上传外部参考资料",
     description: "用于目录结构、章法、配图方式和语言风格参考，不作为产品事实来源。",
     alertType: "warning",
-    fileHint: "docx、pdf、md、txt、html",
+    fileHint: "支持 docx、pdf、md、txt、html",
     accept: DOCUMENT_ACCEPT,
-    factBoundary: "写入 reference_style / style_only。",
-    tip: "请上传外部参考软著或相似文档。系统会隔离为风格参考，不进入产品事实链。",
+    boundary: "仅参考目录、章法、配图方式和语言风格，不能作为产品事实来源。",
+    tip: "请上传外部参考软著或相似文档。系统会隔离为风格参考，不进入产品事实依据。",
   },
   product: {
-    title: "自有产品资料可作为事实来源",
-    description: "用于产品能力描述、事实归纳和后续 evidence-grounded 校验。",
+    title: "上传自有产品资料",
+    description: "用于提取产品功能、技术架构和业务流程，是生成软著正文的事实依据。",
     alertType: "success",
-    fileHint: "docx、pdf、md、txt、html",
+    fileHint: "支持 docx、pdf、md、txt、html",
     accept: DOCUMENT_ACCEPT,
-    factBoundary: "写入 product_evidence / factual_evidence。",
-    tip: "请上传我方产品介绍、PRD、设计说明等资料。后端状态机会决定何时解析和推进。",
+    boundary: "可作为产品事实依据，系统会基于证据提取能力、状态和置信度使用。",
+    tip: "请上传我方产品介绍、PRD、设计说明等资料。系统会按当前任务步骤处理解析和推进。",
   },
   screenshots: {
-    title: "产品截图只登记为展示材料",
-    description:
-      "当前阶段仅作为配图候选和展示材料登记，MVP 不做 OCR，不作为强产品事实证据，也不用于推断当前版本已实现功能。",
+    title: "上传产品截图",
+    description: "仅作为配图候选和展示材料，不做 OCR，不作为产品事实证据。",
     alertType: "info",
-    fileHint: "png、jpg、jpeg、webp",
+    fileHint: "支持 png、jpg、jpeg、webp",
     accept: SCREENSHOT_ACCEPT,
-    factBoundary: "写入 product_evidence / display_material_only。",
-    tip: "截图仅登记为 display_material_only：仅作为配图候选和展示材料登记，MVP 不做 OCR，不作为强产品事实证据。",
+    boundary: "仅用于配图和展示，不做 OCR，不作为产品事实证据。",
+    tip: "截图仅作为配图候选和展示材料，不做 OCR，不作为产品事实证据。",
   },
 };
 
@@ -86,6 +86,19 @@ function handleFileChange(file: UploadFile) {
   selectedFile.value = file.raw ?? null;
 }
 
+function clearSelectedFile() {
+  selectedFile.value = null;
+  uploadRef.value?.clearFiles();
+}
+
+function fileMatchesAccept(file: File, accept: string): boolean {
+  const fileName = file.name.toLowerCase();
+  return accept
+    .split(",")
+    .map((extension) => extension.trim().toLowerCase())
+    .some((extension) => fileName.endsWith(extension));
+}
+
 function closeDialog() {
   if (!props.uploading) {
     emit("update:modelValue", false);
@@ -95,19 +108,36 @@ function closeDialog() {
 watch(
   () => props.modelValue,
   (visible) => {
-    if (!visible) {
-      selectedFile.value = null;
-      uploadRef.value?.clearFiles();
-      uploadType.value = "reference";
+    if (visible) {
+      uploadType.value = props.activeUploadType ?? "reference";
+      clearSelectedFile();
+      return;
+    }
+
+    clearSelectedFile();
+  },
+);
+
+watch(
+  () => props.activeUploadType,
+  (activeUploadType) => {
+    if (props.modelValue && activeUploadType) {
+      uploadType.value = activeUploadType;
     }
   },
 );
+
+watch(uploadType, () => {
+  if (selectedFile.value && !fileMatchesAccept(selectedFile.value, uploadTypeMeta.value.accept)) {
+    clearSelectedFile();
+  }
+});
 </script>
 
 <template>
   <el-dialog
     :model-value="modelValue"
-    title="上传资料"
+    :title="uploadTypeMeta.title"
     width="520px"
     :close-on-click-modal="!uploading"
     :close-on-press-escape="!uploading"
@@ -139,7 +169,7 @@ watch(
 
       <div class="upload-dialog__policy">
         <span>允许文件：{{ uploadTypeMeta.fileHint }}</span>
-        <span>{{ uploadTypeMeta.factBoundary }}</span>
+        <span>{{ uploadTypeMeta.boundary }}</span>
       </div>
 
       <el-upload
@@ -153,7 +183,7 @@ watch(
         :on-change="handleFileChange"
       >
         <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-        <div class="el-upload__text">拖拽文件到这里，或 <em>点击选择</em></div>
+        <div class="el-upload__text">拖拽文件到这里，或点击选择文件</div>
         <template #tip>
           <div class="el-upload__tip">
             {{ uploadTypeMeta.tip }}
@@ -170,7 +200,7 @@ watch(
         :disabled="disabled || !selectedFile"
         @click="submitUpload"
       >
-        上传并登记
+        上传
       </el-button>
     </template>
   </el-dialog>

@@ -21,6 +21,23 @@ class RunSummaryView(BaseModel):
     health_tone: Literal["success", "warning", "danger", "info"] = "info"
 
 
+class RunListItemView(BaseModel):
+    run_id: str
+    project_name: str
+    task_name: str
+    stage_label: str
+    created_at: str
+    updated_at: str
+
+
+class RunListView(BaseModel):
+    runs: list[RunListItemView] = Field(default_factory=list)
+
+
+class CreateRunRequest(BaseModel):
+    project_name: str | None = None
+
+
 class SourceUsagePolicyView(BaseModel):
     label: str
     allowed_use: str
@@ -123,6 +140,11 @@ class WorkspaceView(BaseModel):
     last_error: LastErrorView | None = None
 
 
+class CreateRunResponse(BaseModel):
+    run: RunListItemView
+    workspace: WorkspaceView
+
+
 class ActionResultView(BaseModel):
     run_id: str
     success: bool
@@ -155,4 +177,3 @@ class ArtifactDownloadInfo(BaseModel):
     media_type: str = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
     model_config = ConfigDict(extra="forbid")
-

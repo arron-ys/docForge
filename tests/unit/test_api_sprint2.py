@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Generator
 from pathlib import Path
 
@@ -51,6 +52,43 @@ def test_workspace_view_returns_user_readable_state_without_raw_state(
     assert "workflow_status" not in payload
     assert "qdrant_collection" not in payload
     assert "source_registry" not in payload
+
+
+def test_list_runs_returns_existing_runs_newest_first(
+    api_client: tuple[TestClient, StateStore],
+) -> None:
+    client, store = api_client
+    first = store.create_initial_state(project_name="First")
+    second = store.create_initial_state(project_name="Second")
+
+    first_state_file = store.data_dir / "runs" / first.run_id / "state.json"
+    second_state_file = store.data_dir / "runs" / second.run_id / "state.json"
+    os.utime(first_state_file, (1_700_000_000, 1_700_000_000))
+    os.utime(second_state_file, (1_700_000_100, 1_700_000_100))
+
+    response = client.get("/api/runs")
+
+    assert response.status_code == 200
+    runs = response.json()["runs"]
+    assert [item["run_id"] for item in runs] == [second.run_id, first.run_id]
+    assert runs[0]["project_name"] == "Second"
+    assert runs[0]["stage_label"] == "项目已创建，等待上传资料"
+
+
+def test_create_run_returns_workspace_for_new_task(
+    api_client: tuple[TestClient, StateStore],
+) -> None:
+    client, store = api_client
+
+    response = client.post("/api/runs", json={"project_name": "New Project"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    run_id = payload["run"]["run_id"]
+    assert payload["run"]["project_name"] == "New Project"
+    assert payload["workspace"]["run_summary"]["run_id"] == run_id
+    assert payload["workspace"]["primary_action"]["action_type"] == "open_upload"
+    assert (store.data_dir / "runs" / run_id / "state.json").exists()
 
 
 def test_upload_reference_generates_reference_style_source(

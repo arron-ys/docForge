@@ -14,6 +14,24 @@ export interface RunSummaryApi {
   health_tone: "success" | "warning" | "danger" | "info";
 }
 
+export interface RunListItemApi {
+  run_id: string;
+  project_name: string;
+  task_name: string;
+  stage_label: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RunListApi {
+  runs: RunListItemApi[];
+}
+
+export interface CreateRunApi {
+  run: RunListItemApi;
+  workspace: WorkspaceApi;
+}
+
 export interface SourceUsagePolicyApi {
   label: string;
   allowed_use: string;

@@ -27,6 +27,56 @@ docforge_core 核心业务模块
 
 ## 启动方式
 
+前后端使用两套工具链：
+
+- Python `.venv` 只管理后端依赖。
+- Node.js / npm / pnpm 管理 Vue 前端依赖。
+- `pnpm` 是 Node.js 包管理器，不应安装到 Python `.venv`。
+
+一键启动 FastAPI 后端和 Vue 前端：
+
+```bash
+scripts/dev.sh
+```
+
+这个脚本会自动完成：
+
+- 检查前端 Node.js / npm / Corepack / pnpm 工具链。
+- 如果项目根目录没有 `.venv`，自动创建后端 Python 虚拟环境。
+- 后端缺少 FastAPI / Uvicorn 等依赖时，自动执行 `pip install -e .`。
+- 前端依赖不存在或 `package.json` / `pnpm-lock.yaml` 有更新时，自动执行 `pnpm install`。
+- 同时启动 FastAPI 和 Vue Vite dev server。
+- 按 `Ctrl-C` 时同时停止前后端进程。
+
+启动后访问：
+
+```text
+http://127.0.0.1:5173/
+```
+
+直接打开根地址时，前端会通过 FastAPI 自动进入最近更新的本地任务；如果还没有任何任务，会自动创建一个新任务，并把地址栏同步为带 `run_id` 的工作台地址。
+
+可选端口配置：
+
+```bash
+DOCFORGE_BACKEND_PORT=8001 DOCFORGE_FRONTEND_PORT=5174 scripts/dev.sh
+```
+
+### 手动启动
+
+检查前端工具链：
+
+```bash
+scripts/check_frontend_env.sh
+```
+
+如果 `pnpm` 不存在，先安装系统 Node.js，并启用 Corepack：
+
+```bash
+corepack enable
+corepack prepare pnpm@latest --activate
+```
+
 启动 FastAPI：
 
 ```bash
@@ -53,12 +103,6 @@ pnpm dev
 http://127.0.0.1:5173/
 ```
 
-使用真实任务时需要 URL 携带 `run_id`：
-
-```text
-http://127.0.0.1:5173/?run_id=20260609_143000_ab12
-```
-
 可选启动 Streamlit 调试入口：
 
 ```bash
@@ -69,7 +113,7 @@ streamlit run app/main.py
 
 第一次本地试用请先阅读 [docs/本地试用操作手册.md](docs/本地试用操作手册.md)。
 
-v0.1 真实 API 模式需要同时启动 FastAPI 和 Vue 前端。当前 Vue 工作台依赖已有 `run_id`；可以通过 Streamlit 调试入口创建任务，或使用已有 `data/runs/{run_id}`。
+v0.1 真实 API 模式需要同时启动 FastAPI 和 Vue 前端。打开 `http://127.0.0.1:5173/` 后，Vue 工作台会自动选择最近更新的本地任务；没有任务时会通过 FastAPI 创建新任务。
 
 ## API / Mock 模式
 
@@ -121,6 +165,8 @@ VITE_DOCFORGE_USE_MOCK=false
 - macOS
 - Python 3.11 或 3.12
 - Node.js
+- npm
+- Corepack
 - pnpm
 
 核心后端：

@@ -1,18 +1,33 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
+import ApiKeyConfigDialog from "@/components/ApiKeyConfigDialog.vue";
 import SourceUploadDialog from "@/components/SourceUploadDialog.vue";
 import WorkspaceEmptyState from "@/components/WorkspaceEmptyState.vue";
 import WorkspaceLayout from "@/layouts/WorkspaceLayout.vue";
 import { useWorkspaceStore } from "@/stores/workspace";
 import type { SourceUploadType } from "@/api/sourceApi";
-import type { AgentCardAction, WorkspaceAction } from "@/types/workspace";
+import type { AgentCardAction, ApiKeyConfigState, WorkspaceAction } from "@/types/workspace";
 
 const workspaceStore = useWorkspaceStore();
 const route = useRoute();
+const router = useRouter();
 const workspace = computed(() => workspaceStore.workspace);
 const uploadDialogVisible = ref(false);
+const activeUploadType = ref<SourceUploadType>("reference");
+const apiKeyDialogVisible = ref(false);
+const apiKeyConfig = ref<ApiKeyConfigState>({
+  llmModel: "qwen",
+  llmApiKey: "",
+  embeddingModel: "jina",
+  embeddingApiKey: "",
+});
+const apiKeyConfigured = computed(
+  () =>
+    apiKeyConfig.value.llmApiKey.trim().length > 0 &&
+    apiKeyConfig.value.embeddingApiKey.trim().length > 0,
+);
 
 const queryRunId = computed(() => {
   const value = route.query.run_id;
@@ -21,18 +36,33 @@ const queryRunId = computed(() => {
 
 watch(
   queryRunId,
-  (runId) => {
-    void workspaceStore.loadWorkspace(runId);
+  async (runId) => {
+    if (runId && workspaceStore.runId === runId && workspaceStore.workspace) {
+      return;
+    }
+
+    const loadedRunId = await workspaceStore.loadInitialWorkspace(runId);
+    if (!runId && loadedRunId) {
+      await router.replace({
+        path: route.path,
+        query: { ...route.query, run_id: loadedRunId },
+      });
+    }
   },
   { immediate: true },
 );
 
 function handleTriggerAction(action: AgentCardAction | WorkspaceAction) {
   if (action.actionType === "open_upload" || action.actionType === "open_upload_mock") {
-    uploadDialogVisible.value = true;
+    openUploadDialog("reference");
     return;
   }
   void workspaceStore.triggerAction(action);
+}
+
+function openUploadDialog(uploadType: SourceUploadType) {
+  activeUploadType.value = uploadType;
+  uploadDialogVisible.value = true;
 }
 
 async function submitUpload(payload: { uploadType: SourceUploadType; file: File }) {
@@ -40,6 +70,10 @@ async function submitUpload(payload: { uploadType: SourceUploadType; file: File 
   if (succeeded) {
     uploadDialogVisible.value = false;
   }
+}
+
+function saveApiKeyConfig(config: ApiKeyConfigState) {
+  apiKeyConfig.value = { ...config };
 }
 </script>
 
@@ -50,9 +84,12 @@ async function submitUpload(payload: { uploadType: SourceUploadType; file: File 
       :loading="workspaceStore.loading"
       :sending="workspaceStore.isBusy"
       :downloading-artifact-id="workspaceStore.downloadingArtifactId"
+      :api-key-configured="apiKeyConfigured"
       @send-message="workspaceStore.sendMessage"
       @trigger-action="handleTriggerAction"
       @select-source="workspaceStore.explainSource"
+      @open-upload="openUploadDialog"
+      @open-api-key-config="apiKeyDialogVisible = true"
       @download-artifact="workspaceStore.downloadArtifact"
       @update-product-type="workspaceStore.updateProductTypeHint"
       @update-output-type="workspaceStore.updateDocOutputType"
@@ -62,7 +99,13 @@ async function submitUpload(payload: { uploadType: SourceUploadType; file: File 
       v-model="uploadDialogVisible"
       :uploading="workspaceStore.uploading"
       :disabled="!workspaceStore.runId"
+      :active-upload-type="activeUploadType"
       @submit="submitUpload"
+    />
+    <ApiKeyConfigDialog
+      v-model="apiKeyDialogVisible"
+      :config="apiKeyConfig"
+      @save="saveApiKeyConfig"
     />
   </template>
   <div v-else-if="workspaceStore.emptyReason" class="workspace-loading">

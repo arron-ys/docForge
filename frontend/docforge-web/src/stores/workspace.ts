@@ -4,10 +4,12 @@ import { downloadArtifact as downloadArtifactApi } from "@/api/artifactApi";
 import { DocForgeApiError, useMockApi } from "@/api/httpClient";
 import { getWorkspaceState, sendUserMessage, triggerMockAction } from "@/api/mockClient";
 import { runWorkspaceAction } from "@/api/runActionApi";
+import { createRun, listRuns } from "@/api/runsApi";
 import { uploadSource, type SourceUploadType } from "@/api/sourceApi";
 import { fetchWorkspace } from "@/api/workspaceApi";
 import { createAgentTextMessage, createSystemTextMessage, createUserTextMessage } from "@/mock/workspaceMock";
 import type {
+  AllowedUsage,
   AgentCardAction,
   AgentMessage,
   DocOutputType,
@@ -53,6 +55,38 @@ export const useWorkspaceStore = defineStore("workspace", {
   },
 
   actions: {
+    async loadInitialWorkspace(runId?: string | null): Promise<string | null> {
+      const requestedRunId = runId?.trim() || null;
+      if (requestedRunId || useMockApi) {
+        await this.loadWorkspace(requestedRunId);
+        return this.runId;
+      }
+
+      this.loading = true;
+      this.emptyReason = null;
+      this.runId = null;
+      try {
+        const runs = await listRuns();
+        if (runs.length > 0) {
+          const latestRunId = runs[0].runId;
+          this.workspace = await fetchWorkspace(latestRunId);
+          this.runId = latestRunId;
+        } else {
+          const result = await createRun();
+          this.workspace = result.workspace;
+          this.runId = result.run.runId;
+        }
+        this.clearError();
+        return this.runId;
+      } catch (error) {
+        this.workspace = null;
+        this.recordError(error);
+        return null;
+      } finally {
+        this.loading = false;
+      }
+    },
+
     async loadWorkspace(runId?: string | null) {
       const requestedRunId = runId?.trim() || null;
       this.runId = requestedRunId;
@@ -105,7 +139,7 @@ export const useWorkspaceStore = defineStore("workspace", {
           );
           this.workspace.messages.push(
             createAgentTextMessage(
-              "已记录这条补充说明。自由文本只作为当前页面上下文提示；真实推进请继续使用结构化按钮并交由后端状态机校验。",
+              "已记录为本页面备注。当前版本不会把这条内容提交给后端生成流程；请使用结构化按钮推进任务。",
               {
                 runId: this.workspace.runSummary.runId,
                 eventType: "system_notice",
@@ -194,11 +228,11 @@ export const useWorkspaceStore = defineStore("workspace", {
       this.uploading = true;
       try {
         if (useMockApi) {
-          this.appendSystemMessage(`Mock 模式已模拟上传：${file.name}。`);
+          this.appendSystemMessage(`已在界面演示中记录上传：${file.name}。`);
         } else {
           await uploadSource(this.runId, uploadType, file);
           await this.refreshWorkspace();
-          this.appendSystemMessage("资料已上传并登记。");
+          this.appendSystemMessage("资料已上传。");
         }
         this.clearError();
         return true;
@@ -221,7 +255,7 @@ export const useWorkspaceStore = defineStore("workspace", {
       this.downloadingArtifactId = artifact.artifactId;
       try {
         if (useMockApi) {
-          this.appendSystemMessage("Mock 模式暂不下载真实 DOCX。");
+          this.appendSystemMessage("当前为界面演示数据，暂不下载真实 DOCX。");
         } else {
           await downloadArtifactApi(artifact.artifactId);
           this.appendSystemMessage(`已开始下载：${downloadFileName(artifact)}。`);
@@ -241,7 +275,7 @@ export const useWorkspaceStore = defineStore("workspace", {
 
       this.workspace.messages.push(
         createAgentTextMessage(
-          `${source.usagePolicy.label}「${source.fileName}」的用途边界：${source.usagePolicy.allowedUse}；${source.usagePolicy.riskBoundary}。`,
+          `${sourceUsageLabel(source.allowedUsage)}「${source.fileName}」的用途边界：${sourceUsageAllowedUse(source.allowedUsage)}；${sourceUsageRiskBoundary(source.allowedUsage)}。`,
           { runId: this.workspace.runSummary.runId, eventType: "system_notice" },
         ),
       );
@@ -254,7 +288,7 @@ export const useWorkspaceStore = defineStore("workspace", {
 
       this.workspace.settings.productTypeHint = value;
       this.appendSettingMessage(
-        `已更新产品类型提示：${productTypeLabel(value)}。该选择只作为 Agent 的 prior_hint，不会直接锁死判断。若 Agent 判断与用户选择冲突，系统会展示差异原因并要求二次确认。`,
+        `已更新产品类型判断参考：${productTypeLabel(value)}。最终结论仍以自有产品资料和人工确认结果为准。`,
       );
     },
 
@@ -265,7 +299,7 @@ export const useWorkspaceStore = defineStore("workspace", {
 
       this.workspace.settings.docOutputType = value;
       this.appendSettingMessage(
-        `已更新输出文档类型：${docOutputTypeLabel(value)}。该选择会作为输出约束，后续真实推进仍必须通过 FastAPI Action API 和后端状态机。`,
+        `已更新输出文档类型：${docOutputTypeLabel(value)}。实际生成仍需要按中间区域的当前主操作推进。`,
       );
     },
 
@@ -405,7 +439,7 @@ function normalizeError(error: unknown): {
       return {
         message: "任务状态文件不存在，可能是任务尚未创建或数据目录不一致。",
         recoverable: error.recoverable,
-        suggestedAction: error.suggestedAction || "请确认 FastAPI 使用的 data_dir，并重新选择任务。",
+        suggestedAction: error.suggestedAction || "请确认后端服务使用的数据目录，并重新选择任务。",
       };
     }
     if (error.errorCode === "upload_file_type_not_allowed") {
@@ -419,7 +453,7 @@ function normalizeError(error: unknown): {
     }
     if (error.errorCode === "network_error") {
       return {
-        message: "无法连接 DocForge API，请确认 FastAPI 服务已启动。",
+        message: "无法连接 DocForge API，请确认后端服务已启动。",
         recoverable: true,
         suggestedAction: "启动 python -m uvicorn api.main:app --reload 后重试。",
       };
@@ -448,7 +482,7 @@ function normalizeError(error: unknown): {
 
 function actionNotAllowedMessage(rawMessage: string): string {
   if (rawMessage.includes("已预留") || rawMessage.includes("后续 Sprint")) {
-    return "该确认动作后端接口已预留，完整确认流程将在后续 Sprint 接入。";
+    return "该确认动作后端接口已预留，完整确认流程将在后续版本接入。";
   }
   return "当前状态还不能执行该操作，请先完成上一阶段。";
 }
@@ -495,6 +529,36 @@ function referenceStyleStrengthLabel(value: ReferenceStyleStrength): string {
     weak: "弱参考",
     medium: "中参考",
     strong: "强参考",
+  };
+
+  return labels[value];
+}
+
+function sourceUsageLabel(value: AllowedUsage): string {
+  const labels: Record<AllowedUsage, string> = {
+    style_only: "外部参考资料",
+    factual_evidence: "自有产品资料",
+    display_material_only: "产品截图",
+  };
+
+  return labels[value];
+}
+
+function sourceUsageAllowedUse(value: AllowedUsage): string {
+  const labels: Record<AllowedUsage, string> = {
+    style_only: "仅参考目录、章法、配图方式和语言风格",
+    factual_evidence: "可作为产品事实依据",
+    display_material_only: "仅用于配图和展示",
+  };
+
+  return labels[value];
+}
+
+function sourceUsageRiskBoundary(value: AllowedUsage): string {
+  const labels: Record<AllowedUsage, string> = {
+    style_only: "不能作为产品事实来源",
+    factual_evidence: "系统会基于证据提取能力、状态和置信度使用",
+    display_material_only: "不做 OCR，不作为产品事实证据",
   };
 
   return labels[value];

@@ -1,17 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import {
-  Camera,
-  Collection,
-  Document,
-  FolderOpened,
-  Tickets,
-} from "@element-plus/icons-vue";
+import { Camera, Collection, Document, Tickets } from "@element-plus/icons-vue";
 
-import type { ExportArtifact, RunSummary, SourceItem } from "@/types/workspace";
+import SourceDropzoneCard from "@/components/SourceDropzoneCard.vue";
+import type { SourceUploadType } from "@/api/sourceApi";
+import type { ExportArtifact, ParseStatus, SourceItem, SourceUsagePolicy } from "@/types/workspace";
 
 const props = defineProps<{
-  run: RunSummary;
   sources: SourceItem[];
   exportArtifacts: ExportArtifact[];
   downloadingArtifactId: string | null;
@@ -20,6 +15,7 @@ const props = defineProps<{
 defineEmits<{
   "select-source": [source: SourceItem];
   "download-artifact": [artifact: ExportArtifact];
+  "open-upload": [uploadType: SourceUploadType];
 }>();
 
 const externalReferences = computed(() =>
@@ -29,21 +25,82 @@ const ownProductSources = computed(() =>
   props.sources.filter((source) => source.allowedUsage === "factual_evidence"),
 );
 const screenshots = computed(() => props.sources.filter((source) => source.sourceType === "screenshot"));
+
+type SourceStatusTone = "pending" | "parsed" | "failed" | "skipped" | "saved";
+
+const SOURCE_STATUS_META: Record<
+  ParseStatus,
+  {
+    label: string;
+    tagType: "info" | "success" | "warning" | "danger";
+    tone: SourceStatusTone;
+  }
+> = {
+  pending: {
+    label: "已上传，等待点击“开始解析资料”",
+    tagType: "info",
+    tone: "pending",
+  },
+  parsed: {
+    label: "解析完成",
+    tagType: "success",
+    tone: "parsed",
+  },
+  failed: {
+    label: "解析失败，点击查看原因",
+    tagType: "danger",
+    tone: "failed",
+  },
+  skipped: {
+    label: "已跳过解析",
+    tagType: "info",
+    tone: "skipped",
+  },
+  saved: {
+    label: "已上传，等待解析",
+    tagType: "info",
+    tone: "saved",
+  },
+};
+
+function sourceStatusMeta(source: SourceItem) {
+  return SOURCE_STATUS_META[source.parseStatus];
+}
+
+function sourceUsageCopy(source: SourceItem): SourceUsagePolicy {
+  if (source.allowedUsage === "style_only") {
+    return {
+      label: "外部参考资料",
+      allowedUse: "仅参考目录、章法、配图方式和语言风格",
+      riskBoundary: "不能作为产品事实来源",
+      badgeType: "warning",
+    };
+  }
+
+  if (source.allowedUsage === "factual_evidence") {
+    return {
+      label: "自有产品资料",
+      allowedUse: "可作为产品事实依据",
+      riskBoundary: "系统会基于证据提取能力、状态和置信度使用",
+      badgeType: "success",
+    };
+  }
+
+  if (source.allowedUsage === "display_material_only") {
+    return {
+      label: "产品截图",
+      allowedUse: "仅用于配图和展示",
+      riskBoundary: "不做 OCR，不作为产品事实证据",
+      badgeType: "info",
+    };
+  }
+
+  return source.usagePolicy;
+}
 </script>
 
 <template>
-  <aside class="left-panel" aria-label="Agent 可用上下文仓库">
-    <section class="left-panel__section">
-      <div class="section-title">
-        <el-icon><FolderOpened /></el-icon>
-        当前运行任务
-      </div>
-      <el-card shadow="never" class="task-card">
-        <strong>{{ run.taskName }}</strong>
-        <span>{{ run.stageLabel }}</span>
-      </el-card>
-    </section>
-
+  <aside class="left-panel" aria-label="资料与导出历史">
     <section class="left-panel__section">
       <div class="section-title">
         <el-icon><Collection /></el-icon>
@@ -60,13 +117,26 @@ const screenshots = computed(() => props.sources.filter((source) => source.sourc
           <el-icon><Document /></el-icon>
           <strong>{{ source.fileName }}</strong>
         </span>
-        <el-tag size="small" :type="source.usagePolicy.badgeType">{{ source.statusLabel }}</el-tag>
-        <span class="source-card__policy">{{ source.usagePolicy.allowedUse }}</span>
-        <span class="source-card__risk">{{ source.usagePolicy.riskBoundary }}</span>
+        <el-tag size="small" :type="sourceStatusMeta(source).tagType">
+          {{ sourceStatusMeta(source).label }}
+        </el-tag>
+        <span
+          v-if="source.parseStatus === 'pending' || source.parseStatus === 'failed'"
+          class="source-card__status"
+          :class="`source-card__status--${sourceStatusMeta(source).tone}`"
+          :title="source.parseStatus === 'failed' ? source.parseError ?? undefined : undefined"
+        >
+          {{ sourceStatusMeta(source).label }}
+        </span>
+        <span class="source-card__policy">{{ sourceUsageCopy(source).allowedUse }}</span>
+        <span class="source-card__risk">{{ sourceUsageCopy(source).riskBoundary }}</span>
       </button>
-      <p v-if="externalReferences.length === 0" class="empty-note">
-        尚未上传外部参考资料。上传后仅用于目录、章法、配图方式和语言风格。
-      </p>
+      <SourceDropzoneCard
+        v-if="externalReferences.length === 0"
+        title="上传外部参考资料"
+        description="用于参考软著目录、章节写法、配图方式和语言风格，不作为产品事实来源。"
+        @click="$emit('open-upload', 'reference')"
+      />
     </section>
 
     <section class="left-panel__section">
@@ -85,13 +155,26 @@ const screenshots = computed(() => props.sources.filter((source) => source.sourc
           <el-icon><Document /></el-icon>
           <strong>{{ source.fileName }}</strong>
         </span>
-        <el-tag size="small" :type="source.usagePolicy.badgeType">{{ source.statusLabel }}</el-tag>
-        <span class="source-card__policy">{{ source.usagePolicy.allowedUse }}</span>
-        <span class="source-card__risk">{{ source.usagePolicy.riskBoundary }}</span>
+        <el-tag size="small" :type="sourceStatusMeta(source).tagType">
+          {{ sourceStatusMeta(source).label }}
+        </el-tag>
+        <span
+          v-if="source.parseStatus === 'pending' || source.parseStatus === 'failed'"
+          class="source-card__status"
+          :class="`source-card__status--${sourceStatusMeta(source).tone}`"
+          :title="source.parseStatus === 'failed' ? source.parseError ?? undefined : undefined"
+        >
+          {{ sourceStatusMeta(source).label }}
+        </span>
+        <span class="source-card__policy">{{ sourceUsageCopy(source).allowedUse }}</span>
+        <span class="source-card__risk">{{ sourceUsageCopy(source).riskBoundary }}</span>
       </button>
-      <p v-if="ownProductSources.length === 0" class="empty-note">
-        尚未上传自有产品资料。可作为产品事实来源的是 product_evidence / factual_evidence。
-      </p>
+      <SourceDropzoneCard
+        v-if="ownProductSources.length === 0"
+        title="上传自有产品资料"
+        description="用于提取产品功能、技术架构和业务流程，是生成软著正文的事实依据。"
+        @click="$emit('open-upload', 'product')"
+      />
     </section>
 
     <section class="left-panel__section">
@@ -110,13 +193,26 @@ const screenshots = computed(() => props.sources.filter((source) => source.sourc
           <el-icon><Camera /></el-icon>
           <strong>{{ source.fileName }}</strong>
         </span>
-        <el-tag size="small" :type="source.usagePolicy.badgeType">{{ source.statusLabel }}</el-tag>
-        <span class="source-card__policy">{{ source.usagePolicy.allowedUse }}</span>
-        <span class="source-card__risk">{{ source.usagePolicy.riskBoundary }}</span>
+        <el-tag size="small" :type="sourceStatusMeta(source).tagType">
+          {{ sourceStatusMeta(source).label }}
+        </el-tag>
+        <span
+          v-if="source.parseStatus === 'pending' || source.parseStatus === 'failed'"
+          class="source-card__status"
+          :class="`source-card__status--${sourceStatusMeta(source).tone}`"
+          :title="source.parseStatus === 'failed' ? source.parseError ?? undefined : undefined"
+        >
+          {{ sourceStatusMeta(source).label }}
+        </span>
+        <span class="source-card__policy">{{ sourceUsageCopy(source).allowedUse }}</span>
+        <span class="source-card__risk">{{ sourceUsageCopy(source).riskBoundary }}</span>
       </button>
-      <p v-if="screenshots.length === 0" class="empty-note">
-        尚未上传产品截图。截图仅作为配图候选和展示材料登记，MVP 不做 OCR，不作为强产品事实证据。
-      </p>
+      <SourceDropzoneCard
+        v-if="screenshots.length === 0"
+        title="上传产品截图"
+        description="仅作为配图候选和展示材料，不做 OCR，不作为产品事实证据。"
+        @click="$emit('open-upload', 'screenshots')"
+      />
     </section>
 
     <section class="left-panel__section">
@@ -170,27 +266,6 @@ const screenshots = computed(() => props.sources.filter((source) => source.sourc
   font-weight: 700;
 }
 
-.task-card {
-  border-radius: var(--df-radius-md);
-}
-
-.task-card :deep(.el-card__body) {
-  display: grid;
-  gap: 6px;
-  padding: 12px;
-}
-
-.task-card strong {
-  color: var(--df-text);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.task-card span {
-  color: var(--df-text-secondary);
-  font-size: 12px;
-}
-
 .source-card {
   display: grid;
   width: 100%;
@@ -232,25 +307,32 @@ const screenshots = computed(() => props.sources.filter((source) => source.sourc
 }
 
 .source-card__policy,
-.source-card__risk {
+.source-card__risk,
+.source-card__status {
   color: var(--df-text-secondary);
   font-size: 12px;
   line-height: 1.45;
 }
 
-.source-card__risk {
-  color: var(--df-warning-text);
+.source-card__status {
+  display: grid;
+  gap: 6px;
 }
 
-.empty-note {
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px dashed var(--df-border);
-  border-radius: var(--df-radius-md);
-  background: rgba(255, 255, 255, 0.62);
-  color: var(--df-text-secondary);
-  font-size: 12px;
-  line-height: 1.55;
+.source-card__status--parsed {
+  color: #047857;
+}
+
+.source-card__status--failed {
+  color: var(--df-danger);
+}
+
+.source-card__status--pending {
+  color: #b45309;
+}
+
+.source-card__risk {
+  color: var(--df-warning-text);
 }
 
 .artifact-list {
@@ -283,4 +365,5 @@ const screenshots = computed(() => props.sources.filter((source) => source.sourc
   font-size: 12px;
   line-height: 1.5;
 }
+
 </style>

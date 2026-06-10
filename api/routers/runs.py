@@ -2,12 +2,35 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from api.deps import get_run_action_service
+from api.deps import get_run_action_service, get_workspace_view_service
 from api.run_id_guard import validate_run_id
-from api.schemas import ActionResultView, ConfirmDocPlanRequest, ConfirmProductTypeRequest
+from api.schemas import (
+    ActionResultView,
+    ConfirmDocPlanRequest,
+    ConfirmProductTypeRequest,
+    CreateRunRequest,
+    CreateRunResponse,
+    RunListView,
+)
 from api.services.run_action_service import RunActionService
+from api.services.workspace_view_service import WorkspaceViewService
 
 router = APIRouter(tags=["runs"])
+
+
+@router.get("/runs", response_model=RunListView)
+def list_runs(
+    service: WorkspaceViewService = Depends(get_workspace_view_service),
+) -> RunListView:
+    return service.list_runs()
+
+
+@router.post("/runs", response_model=CreateRunResponse)
+def create_run(
+    payload: CreateRunRequest | None = None,
+    service: WorkspaceViewService = Depends(get_workspace_view_service),
+) -> CreateRunResponse:
+    return service.create_run(payload.project_name if payload else None)
 
 
 @router.post("/runs/{run_id}/actions/next", response_model=ActionResultView)

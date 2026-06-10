@@ -15,16 +15,16 @@ export const uploadMockAction: WorkspaceAction = {
   label: "上传资料",
   primary: false,
   disabled: false,
-  description: "当前 Sprint 仅展示上传入口，真实文件上传将在后续 API 接入后实现。",
+  description: "打开上传弹窗，选择外部参考资料、自有产品资料或产品截图。",
 };
 
 export const exportEntryMockAction: WorkspaceAction = {
   actionId: "action_export_entry_mock",
   actionType: "export_entry_mock",
-  label: "导出入口",
+  label: "查看导出状态",
   primary: false,
   disabled: false,
-  description: "当前 Sprint 仅展示导出入口，真实 DOCX 下载将在后续 API 接入后实现。",
+  description: "查看文档生成与下载状态。导出仍需完成正文生成和风险检查。",
 };
 
 const primaryAction: WorkspaceAction = {
@@ -40,7 +40,7 @@ export const workspaceMock: WorkspaceState = {
   runSummary: {
     runId: RUN_ID,
     projectName: "DataTalk 软著文档生成",
-    taskName: "当前运行任务：DataTalk 产品功能说明书",
+    taskName: "DataTalk 产品功能说明书",
     stageLabel: "资料已上传，等待解析",
     healthLabel: "正常，可继续",
     healthTone: "success",
@@ -65,7 +65,7 @@ export const workspaceMock: WorkspaceState = {
         riskBoundary: "不能作为产品事实来源",
         badgeType: "warning",
       },
-      notes: "外部参考资料只进入 reference_style 语料，不进入产品事实证据库。",
+      notes: "外部参考资料仅用于参考写法，不作为产品事实来源。",
       metadata: {
         pageCount: 42,
         originalCategory: "reference_soft_copyright_doc",
@@ -86,11 +86,11 @@ export const workspaceMock: WorkspaceState = {
       statusLabel: "已解析",
       usagePolicy: {
         label: "自有产品资料",
-        allowedUse: "可用于产品能力描述和事实归纳",
-        riskBoundary: "可以作为产品事实来源",
+        allowedUse: "可作为产品事实依据",
+        riskBoundary: "系统会基于证据提取能力、状态和置信度使用",
         badgeType: "success",
       },
-      notes: "自有产品资料进入 product_evidence 语料，可用于产品能力和功能边界判断。",
+      notes: "自有产品资料可用于产品能力和功能边界判断。",
       metadata: {
         paragraphCount: 128,
         productName: "DataTalk",
@@ -111,11 +111,11 @@ export const workspaceMock: WorkspaceState = {
       statusLabel: "已保存",
       usagePolicy: {
         label: "产品截图",
-        allowedUse: "仅作为配图候选和展示材料登记",
-        riskBoundary: "MVP 不做 OCR，不作为强产品事实证据，不用于推断当前版本已实现功能",
+        allowedUse: "仅用于配图和展示",
+        riskBoundary: "不做 OCR，不作为产品事实证据",
         badgeType: "info",
       },
-      notes: "当前阶段截图仅作为配图候选和展示材料登记，MVP 不做 OCR，不作为强产品事实证据，不用于推断当前版本已实现功能。",
+      notes: "产品截图仅作为配图候选和展示材料，不做 OCR，不作为产品事实证据。",
       metadata: {
         width: 1440,
         height: 900,
@@ -171,7 +171,7 @@ export const workspaceMock: WorkspaceState = {
         cardId: "card-source-received",
         cardType: "source_received",
         title: "Agent 已接收资料",
-        summary: "资料已按用途边界完成 mock 归类。",
+        summary: "资料已按用途边界完成归类。",
         counts: {
           externalReferences: 1,
           productMaterials: 1,

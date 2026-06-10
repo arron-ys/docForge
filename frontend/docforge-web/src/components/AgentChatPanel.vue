@@ -50,8 +50,8 @@ watch(
   <section class="chat-panel" aria-label="Agent 对话主窗口">
     <div ref="scrollArea" class="chat-panel__messages">
       <div class="chat-panel__intro">
-        <span>workflow-driven Agent Chat</span>
-        <strong>所有推进动作通过结构化卡片按钮触发，前端不会绕过后端状态机</strong>
+        <span>Agent 工作区</span>
+        <strong>请按照当前主操作推进任务。系统会根据任务状态校验每一步，不能跳过必要流程。</strong>
       </div>
       <MessageBubble
         v-for="message in messages"
@@ -89,12 +89,13 @@ watch(
         {{ primaryAction?.description ?? "当前没有可执行主操作。请先上传资料、刷新诊断，或等待后端完成上一阶段。" }}
       </p>
       <div class="composer-input">
+        <span class="composer-input__label">本地备注，暂不参与生成</span>
         <el-input
           v-model="draft"
           :autosize="{ minRows: 2, maxRows: 3 }"
           type="textarea"
           resize="none"
-          placeholder="补充 Agent 工作流上下文，例如：这份截图只用于展示，不要作为事实来源。"
+          placeholder="可记录人工备注。当前版本不会把这里的内容提交给后端生成流程。"
           @keydown.enter.exact.prevent="submitMessage"
         />
         <el-button
@@ -168,6 +169,13 @@ watch(
   max-width: 840px;
   margin: 0 auto;
   gap: 10px;
+}
+
+.composer-input__label {
+  grid-column: 1 / -1;
+  color: var(--df-text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .composer-state-hint {

@@ -1,6 +1,6 @@
 # 墨衡 DocForge Web
 
-墨衡 DocForge Web 是 v0.1 的正式产品入口：Vue3 三栏式 Agent 工作台。它通过 HTTP / REST 调用 FastAPI，不直接调用 Agent，不直接读取后端内部状态文件，也不直接修改 workflow。
+墨衡 DocForge Web 是 v0.1 的正式产品入口：Vue3 三栏式 Agent 工作台。它通过 HTTP / REST 调用 FastAPI，不直接调用 Agent，不直接读取后端内部状态文件，也不直接改写后端任务状态。
 
 Streamlit 入口仍然保留，但只作为开发调试入口 / 旧 Demo 入口。
 
@@ -11,6 +11,54 @@ Vue 3 / Vite / TypeScript / Element Plus / Pinia / Vue Router / Axios / pnpm
 ## 当前状态
 
 当前状态为 DocForge v0.1 正式入口。工作台已接入真实 FastAPI，同时保留 mock 模式用于界面检查和开发兜底。
+
+## 前端环境准备
+
+前端不是 Python `.venv` 管理。Vue 3 / Vite 需要 Node.js 工具链：
+
+- Node.js：运行前端构建和开发服务。
+- npm：Node.js 自带的包管理器。
+- Corepack：Node.js 附带的包管理器代理，用于启用 pnpm。
+- pnpm：本项目使用的前端包管理器。
+
+`pnpm` 是 Node.js 包管理器，不应该安装到 Python `.venv`。Python `.venv` 只用于后端 Python 依赖。
+
+macOS 推荐安装系统 Node.js，例如：
+
+```bash
+brew install node
+```
+
+安装 Node.js 后启用 pnpm：
+
+```bash
+corepack enable
+corepack prepare pnpm@latest --activate
+```
+
+检查工具链：
+
+```bash
+node -v
+npm -v
+corepack -v
+pnpm -v
+```
+
+也可以从项目根目录运行：
+
+```bash
+scripts/check_frontend_env.sh
+```
+
+或在前端目录运行：
+
+```bash
+cd frontend/docforge-web
+node scripts/check-env.mjs
+```
+
+不要使用临时 Node 或 `/private/tmp` 下的 Node 启动长期开发环境；Codex 托管的临时 Node 有时会导致 Vite / Rollup native 包加载失败。
 
 ## 启动方式
 
@@ -28,19 +76,21 @@ pnpm install
 pnpm dev
 ```
 
+如果 Rollup native 包报错，通常是 Node / pnpm 安装或 `node_modules` 状态不稳定。先使用系统 Node.js + Corepack，然后清理并重装：
+
+```bash
+rm -rf node_modules dist .vite .cache tsconfig.tsbuildinfo
+pnpm install
+pnpm dev
+```
+
 访问：
 
 ```text
 http://127.0.0.1:5173/
 ```
 
-使用真实任务时需要 URL 携带 `run_id`：
-
-```text
-http://127.0.0.1:5173/?run_id=20260609_143000_ab12
-```
-
-如果没有 `run_id`，页面会显示空状态，提示如何进入任务。
+直接打开根地址时，前端会通过 FastAPI 自动进入最近更新的本地任务；如果还没有任何任务，会自动创建一个新任务，并把地址栏同步为带 `run_id` 的工作台地址。
 
 ## API / Mock 配置
 
@@ -71,44 +121,51 @@ VITE_DOCFORGE_USE_MOCK=true
 
 左侧：资料与项目上下文。
 
-- 当前任务
-- 参考资料
-- 自有资料
+- 外部参考资料
+- 自有产品资料
 - 产品截图
-- 导出历史
+- 生成产物 / 导出历史
 
-中间：Agent 对话区。
+外部参考资料、自有产品资料、产品截图在空状态下会显示可点击上传卡片，并自动带入对应上传类型。
+
+中间：Agent 工作区。
 
 - Agent 消息
 - 结构化卡片
 - 当前主操作
+- 本地备注输入
 - 错误提示
 - 导出结果
 
+自由文本输入仅记录为当前页面备注，当前版本不会把备注内容提交给后端生成流程。任务推进仍通过当前主操作和结构化按钮完成。
+
 右侧：运行设置与诊断区。
 
-- 产品类型 `prior_hint`
+- 模型密钥状态
+- 产品类型判断参考
 - 输出文档类型
 - 参考风格强度
 - 截图策略
 - 风险策略
 - 当前诊断
 
-右侧设置只是 `prior_hint`，不会锁死 Agent 判断。只有结构化 action 才会推进 workflow，前端不会直接修改 workflow 状态。
+右侧设置只作为当前页面的写作参考，不会锁死 Agent 判断，也不会直接推进任务。需要推进任务时，请使用中间区域的当前主操作。
+
+顶部右侧提供“配置密钥”入口。该弹窗只保存当前页面的 LLM / Embedding Key 表单状态，不写入后端、不写入 `.env`、不持久化，也不会把 Key 发送给第三方服务。当前版本真实调用仍以后端服务配置为准。
 
 ## 资料上传
 
 工作台通过 FastAPI 上传三类资料：
 
-- 外部参考软著：`reference_style / style_only`，只用于目录、章法、语言风格和配图方式，不作为产品事实来源。
-- 自有产品资料：`product_evidence / factual_evidence`，可作为产品事实来源。
-- 产品截图：`product_evidence / display_material_only`，仅作为展示材料登记和配图候选。
+- 外部参考资料：只用于目录、章法、语言风格和配图方式，不作为产品事实来源。
+- 自有产品资料：用于产品能力、技术架构和业务流程，是生成软著正文的事实依据。
+- 产品截图：仅作为展示材料和配图候选，不作为产品事实来源。
 
-截图在 v0.1 不做 OCR、不做视觉模型解析、不作为强产品事实证据、不用于推断当前版本已实现功能。
+产品截图在 v0.1 不做 OCR、不做视觉模型解析、不作为产品事实证据、不用于推断当前版本已实现功能。
 
-## Action
+## 任务推进
 
-工作台通过后端 Action API 推进当前主操作。FastAPI 会进行 action 状态校验，并阻止前端绕过 workflow。
+工作台通过后端接口推进当前主操作。FastAPI 会进行任务状态校验，并阻止前端跳过必要流程。
 
 当前状态不允许执行某个 action 时，前端应展示用户可读错误，例如“当前状态还不能执行该操作，请先完成上一阶段。”`confirm-product-type` / `confirm-doc-plan` 的完整后端确认流仍待后续版本补齐。
 
@@ -144,4 +201,4 @@ v0.1 的正式用户产物是 DOCX：
 
 ## 边界说明
 
-本前端不引入 WebSocket/SSE，不包含登录、权限或多租户。mock 模式只验证界面，不代表真实生成结果；真实任务请使用 FastAPI 模式并携带 `run_id`。
+本前端不引入 WebSocket/SSE，不包含登录、权限或多租户。mock 模式只验证界面，不代表真实生成结果；真实任务请使用 FastAPI 模式，根地址会自动选择或创建运行任务。

@@ -4,6 +4,7 @@ import type {
   DiagnosticSummaryApi,
   ExportArtifactApi,
   LastErrorApi,
+  RunListItemApi,
   RunSummaryApi,
   SourceItemApi,
   SourceUsagePolicyApi,
@@ -18,6 +19,7 @@ import type {
   FileType,
   ProductTypeOption,
   ReferenceStyleStrength,
+  RunListItem,
   RunEventType,
   RunSummary,
   SourceItem,
@@ -44,6 +46,17 @@ export function mapWorkspace(payload: WorkspaceApi): WorkspaceState {
     primaryAction: payload.primary_action ? mapWorkspaceAction(payload.primary_action) : undefined,
     error: payload.error,
     lastError: payload.last_error ? mapLastError(payload.last_error) : null,
+  };
+}
+
+export function mapRunListItem(payload: RunListItemApi): RunListItem {
+  return {
+    runId: payload.run_id,
+    projectName: payload.project_name,
+    taskName: payload.task_name,
+    stageLabel: payload.stage_label,
+    createdAt: payload.created_at,
+    updatedAt: payload.updated_at,
   };
 }
 

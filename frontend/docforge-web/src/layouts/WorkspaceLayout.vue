@@ -3,6 +3,7 @@ import AgentChatPanel from "@/components/AgentChatPanel.vue";
 import LeftContextPanel from "@/components/LeftContextPanel.vue";
 import RightSettingsPanel from "@/components/RightSettingsPanel.vue";
 import TopBar from "@/components/TopBar.vue";
+import type { SourceUploadType } from "@/api/sourceApi";
 import type {
   AgentCardAction,
   DocOutputType,
@@ -19,31 +20,20 @@ defineProps<{
   loading: boolean;
   sending: boolean;
   downloadingArtifactId: string | null;
+  apiKeyConfigured: boolean;
 }>();
 
 defineEmits<{
   "send-message": [content: string];
   "trigger-action": [action: AgentCardAction | WorkspaceAction];
   "select-source": [source: SourceItem];
+  "open-upload": [uploadType: SourceUploadType];
+  "open-api-key-config": [];
   "download-artifact": [artifact: ExportArtifact];
   "update-product-type": [value: ProductTypeOption];
   "update-output-type": [value: DocOutputType];
   "update-reference-strength": [value: ReferenceStyleStrength];
 }>();
-
-function findExportAction(actions: WorkspaceAction[]): WorkspaceAction | undefined {
-  return actions.find((action) =>
-    [
-      "export_docx",
-      "export_final_doc",
-      "export-final-docx",
-      "export_risk_docx",
-      "export_risk_doc",
-      "export-risk-docx",
-      "export_entry_mock",
-    ].includes(action.actionType),
-  );
-}
 
 function findUploadAction(actions: WorkspaceAction[]): WorkspaceAction | undefined {
   return actions.find((action) =>
@@ -59,18 +49,17 @@ function findUploadAction(actions: WorkspaceAction[]): WorkspaceAction | undefin
     </div>
     <TopBar
       :run="workspace.runSummary"
-      :export-action="findExportAction(workspace.availableActions)"
       :primary-action="workspace.primaryAction"
-      :sending="sending"
-      @trigger-action="$emit('trigger-action', $event)"
+      :api-key-configured="apiKeyConfigured"
+      @open-api-key-config="$emit('open-api-key-config')"
     />
     <main class="workspace-layout" aria-label="墨衡 DocForge Agent 工作台">
       <LeftContextPanel
-        :run="workspace.runSummary"
         :sources="workspace.sources"
         :export-artifacts="workspace.exportArtifacts"
         :downloading-artifact-id="downloadingArtifactId"
         @select-source="$emit('select-source', $event)"
+        @open-upload="$emit('open-upload', $event)"
         @download-artifact="$emit('download-artifact', $event)"
       />
       <AgentChatPanel
@@ -84,6 +73,7 @@ function findUploadAction(actions: WorkspaceAction[]): WorkspaceAction | undefin
       <RightSettingsPanel
         :settings="workspace.settings"
         :diagnostics="workspace.diagnostics"
+        :api-key-configured="apiKeyConfigured"
         @update-product-type="$emit('update-product-type', $event)"
         @update-output-type="$emit('update-output-type', $event)"
         @update-reference-strength="$emit('update-reference-strength', $event)"

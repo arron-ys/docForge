@@ -102,3 +102,17 @@
 - 确认实际本地环境的 Python / Node / pnpm 安装命令是否需要补充平台差异说明。
 - 确认 `confirm-product-type` / `confirm-doc-plan` 后端能力完成后，同步更新本地试用手册和前端 README。
 - 如果未来新增 Word 格式项目说明文档，建议迁移为 Markdown，便于版本控制和自动扫描。
+
+## 八、前端工具链补充同步
+
+本次补充记录前端开发环境要求：
+
+- 前端依赖由 Node.js / npm / Corepack / pnpm 管理。
+- Python `.venv` 只用于后端 Python 依赖。
+- `pnpm` 是 Node.js 包管理器，不属于 Python `.venv`。
+- 新增 `scripts/check_frontend_env.sh` 作为根目录环境检查入口。
+- 新增 `frontend/docforge-web/scripts/check-env.mjs` 作为前端目录内环境检查入口。
+- `frontend/docforge-web/package.json` 已包含 `packageManager`，并补充 `check:env` 脚本。
+- `frontend/docforge-web/.gitignore` 已确认包含 `node_modules/`、`dist/`、`.vite/`、`.cache/`、`coverage/`、`*.tsbuildinfo` 和 `*.local`。
+
+脚本只做检查和提示，不会自动执行全局安装、不会修改用户 shell 配置，也不会把 pnpm 安装到 Python `.venv`。

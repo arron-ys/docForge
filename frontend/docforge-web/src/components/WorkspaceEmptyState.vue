@@ -8,20 +8,19 @@ defineProps<{
   <main class="empty-page" aria-label="DocForge 工作台空状态">
     <el-card shadow="never" class="empty-card">
       <div class="empty-card__eyebrow">墨衡 DocForge 工作台</div>
-      <h1>请先选择一个运行任务</h1>
+      <h1>暂时无法打开工作台</h1>
       <p class="empty-card__reason">{{ reason }}</p>
 
       <div class="empty-grid">
         <section>
-          <strong>API 模式需要 run_id</strong>
+          <strong>自动任务入口</strong>
           <p>
-            请使用后端已创建的任务编号打开工作台，例如
-            <code>/?run_id=20260609_143000_ab12</code>。
+            直接打开 <code>/</code> 时，前端会通过 FastAPI 自动进入最新任务；没有任务时会自动创建一个新任务。
           </p>
         </section>
         <section>
-          <strong>启动 FastAPI</strong>
-          <p><code>python -m uvicorn api.main:app --reload</code></p>
+          <strong>一键启动</strong>
+          <p><code>scripts/dev.sh</code></p>
         </section>
         <section>
           <strong>切换 mock 模式</strong>
@@ -37,7 +36,7 @@ defineProps<{
 
       <el-alert
         title="这里不是报错页面"
-        description="当前页面没有调用无效 API，也不会直接读取后端内部状态文件。选择有效任务后，工作台会通过 FastAPI 加载可展示状态。"
+        description="当前页面没有读取后端内部状态文件。工作台只能通过 FastAPI 加载任务；如果 FastAPI 未启动或任务加载失败，会显示这类恢复提示。"
         type="info"
         show-icon
         :closable="false"

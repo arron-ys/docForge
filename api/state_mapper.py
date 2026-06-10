@@ -13,6 +13,7 @@ from .schemas import (
     DiagnosticIssueView,
     DiagnosticSummaryView,
     ExportArtifactView,
+    RunListItemView,
     RunSummaryView,
     SeverityCountsView,
     SourceItemView,
@@ -138,6 +139,30 @@ def to_workspace_view(
         error=state.errors[-1].get("message") if state.errors else None,
         last_error=None,
     )
+
+
+def to_run_list_item_view(state: DocForgeState, *, state_file: Path | None = None) -> RunListItemView:
+    updated_at = datetime.now(UTC)
+    if state_file and state_file.exists():
+        updated_at = datetime.fromtimestamp(state_file.stat().st_mtime, tz=UTC)
+
+    created_at = created_at_from_run_id(state.run_id) or updated_at
+    project_name = state.project_name or state.target_product_name or "未命名项目"
+    return RunListItemView(
+        run_id=state.run_id,
+        project_name=project_name,
+        task_name=f"当前运行任务：{project_name if project_name != '未命名项目' else state.run_id}",
+        stage_label=status_label(state.workflow_status),
+        created_at=created_at.isoformat(),
+        updated_at=updated_at.isoformat(),
+    )
+
+
+def created_at_from_run_id(run_id: str) -> datetime | None:
+    try:
+        return datetime.strptime(run_id[:15], "%Y%m%d_%H%M%S").replace(tzinfo=UTC)
+    except ValueError:
+        return None
 
 
 def to_source_view(run_id: str, source: SourceItem) -> SourceItemView:

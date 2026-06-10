@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { DataAnalysis, Finished, Setting, Warning } from "@element-plus/icons-vue";
+import { DataAnalysis, Finished, Key, Setting, Warning } from "@element-plus/icons-vue";
 
 import type {
   DiagnosticSummary,
@@ -13,6 +13,7 @@ import type {
 const props = defineProps<{
   settings: WorkspaceSettings;
   diagnostics: DiagnosticSummary;
+  apiKeyConfigured: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -39,10 +40,24 @@ const referenceStyleStrength = computed({
 
 <template>
   <aside class="right-panel" aria-label="运行设置、产品约束和诊断状态">
+    <section class="settings-card settings-card--notice">
+      <div class="settings-card__title">
+        <el-icon><Key /></el-icon>
+        模型密钥状态
+      </div>
+      <p class="hint-text hint-text--inline">
+        {{
+          apiKeyConfigured
+            ? "模型密钥已在当前页面填写。当前版本真实调用仍以后端服务配置为准。"
+            : "尚未配置模型密钥。请先点击右上角“配置密钥”，否则真实模型调用需要依赖后端服务配置。"
+        }}
+      </p>
+    </section>
+
     <section class="settings-card">
       <div class="settings-card__title">
         <el-icon><Setting /></el-icon>
-        产品类型提示
+        产品类型判断参考
       </div>
       <el-radio-group v-model="productTypeHint" class="stacked-radios">
         <el-radio value="saas_web_platform">SaaS / Web 平台</el-radio>
@@ -53,8 +68,7 @@ const referenceStyleStrength = computed({
         <el-radio value="agent_decide">让 Agent 根据资料判断</el-radio>
       </el-radio-group>
       <p class="hint-text">
-        这里的选择只作为 Agent 的 prior_hint，不会直接锁死判断。若 Agent
-        判断与用户选择冲突，系统会展示差异原因并要求二次确认。只有结构化确认动作才能推进 workflow。
+        这里用于提示系统优先考虑的产品类型。最终结论仍以自有产品资料和人工确认结果为准。
       </p>
     </section>
 
@@ -69,7 +83,7 @@ const referenceStyleStrength = computed({
         <el-radio value="technical_design">技术设计说明型软著</el-radio>
       </el-radio-group>
       <p class="hint-text">
-        输出类型是写作约束提示，不会让前端直接推进状态。真实生成必须通过后端 Action API。
+        这里用于提示最终文档的写作方向。实际生成仍需要按中间区域的当前主操作推进。
       </p>
     </section>
 
@@ -88,7 +102,7 @@ const referenceStyleStrength = computed({
         block
       />
       <p class="hint-text">
-        外部参考软著只影响目录结构、章法、配图方式和语言风格，不作为产品事实来源。
+        控制外部参考资料对目录、章节写法和语言风格的影响程度。无论强弱，外部参考资料都不能作为产品事实来源。
       </p>
     </section>
 
@@ -98,26 +112,25 @@ const referenceStyleStrength = computed({
         截图使用策略
       </div>
       <p class="fixed-policy">
-        MVP 阶段截图只作为配图候选和展示材料登记，不做 OCR，不作为强产品事实证据，
-        不用于推断当前版本已实现功能。
+        产品截图仅作为配图候选和展示材料，不做 OCR，不作为产品事实证据，
+        不用于推断产品功能是否已经实现。
       </p>
     </section>
 
     <section class="settings-card">
       <div class="settings-card__title">风险策略</div>
       <div class="risk-policy">
-        <span><strong>blocker</strong> 不允许导出</span>
-        <span><strong>major</strong> 进入风险版 DOCX</span>
-        <span><strong>minor</strong> 允许继续</span>
-        <span><strong>suggestion</strong> 仅提示</span>
+        <span><strong>阻塞问题</strong> 必须修复，否则不能导出</span>
+        <span><strong>主要风险</strong> 可导出风险版，需人工复核</span>
+        <span><strong>轻微问题</strong> 不阻塞导出，但建议处理</span>
+        <span><strong>优化建议</strong> 仅作为改进参考</span>
       </div>
     </section>
 
     <section class="settings-card">
-      <div class="settings-card__title">状态机边界</div>
+      <div class="settings-card__title">任务推进说明</div>
       <p class="hint-text hint-text--strong">
-        右侧设置只影响本地 prior_hint 展示；Vue 不会直接修改后端状态，也不会绕过 ActionGuard。
-        所有推进都必须通过中间区域的结构化动作按钮。
+        右侧设置只用于当前页面的写作参考。需要推进任务时，请使用中间区域的当前主操作。
       </p>
     </section>
 
@@ -161,6 +174,11 @@ const referenceStyleStrength = computed({
   margin-top: 12px;
 }
 
+.settings-card--notice {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
 .settings-card__title {
   display: flex;
   align-items: center;
@@ -201,6 +219,10 @@ const referenceStyleStrength = computed({
 .hint-text--strong {
   margin-top: 0;
   color: var(--df-text);
+}
+
+.hint-text--inline {
+  margin-top: 0;
 }
 
 .risk-policy,

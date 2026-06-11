@@ -35,7 +35,7 @@ from docforge_core.io.state_store import StateStore
 from ._shared import transition, unique_strings
 from .capability_validation_trace import validate_capability_trace
 from .confirmation_decision_validator import validate_template_confirmation_decision
-from .human_confirm_gate import DECISION_METADATA_KEY
+from .human_confirm_gate import CONFIRMATION_SOURCE_KEY, DECISION_METADATA_KEY
 from .title_safety import is_forbidden_title
 
 QUOTE_TEXT_PATTERN = re.compile(r"[^0-9a-z\u4e00-\u9fff]+")
@@ -82,6 +82,9 @@ class FrozenDocPlanService:
             raise ValueError("无法从 HumanConfirmation 恢复 template confirmation decision")
         decision = TemplateConfirmationDecision.model_validate(raw_decision)
         validate_template_confirmation_decision(decision, state.template_strategy)
+        from docforge_core.workflow.run_settings import get_run_settings
+
+        run_settings = get_run_settings(state)
 
         current_candidates = [
             item
@@ -141,11 +144,17 @@ class FrozenDocPlanService:
             project_id=state.project_id,
             locked_status=LockedStatus.LOCKED,
             locked_at=now,
-            locked_by=LockedBy.HUMAN,
+            locked_by=(
+                LockedBy.ORCHESTRATOR
+                if confirmation.metadata.get(CONFIRMATION_SOURCE_KEY) == "auto"
+                else LockedBy.HUMAN
+            ),
             software_identity={
                 "project_id": state.project_id,
                 "project_name": state.project_name,
                 "target_doc_type": state.target_doc_type,
+                "selected_doc_output_type": run_settings["doc_output_type"],
+                "reference_style_strength": run_settings["reference_style_strength"],
                 "target_product_name": state.target_product_name,
                 "version": self._software_version(state),
                 "software_version": self._software_version(state),
@@ -570,8 +579,13 @@ class FrozenDocPlanService:
 
     @staticmethod
     def _writing_policy(state: DocForgeState) -> dict[str, Any]:
+        from docforge_core.workflow.run_settings import get_run_settings
+
+        run_settings = get_run_settings(state)
         return {
             "writing_style_summary": state.style_profile.writing_style,
+            "selected_doc_output_type": run_settings["doc_output_type"],
+            "reference_style_strength": run_settings["reference_style_strength"],
             "operation_step_style": state.style_profile.operation_step_pattern,
             "screenshot_caption_style": state.style_profile.screenshot_usage_pattern,
             "forbidden_content_rules": [

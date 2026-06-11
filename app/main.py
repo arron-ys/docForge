@@ -5,16 +5,10 @@ import streamlit as st
 
 from docforge_core.agents.audit_agent import AuditAgentService
 from docforge_core.agents.figure_slot_planner import FigureSlotPlannerService
-from docforge_core.agents.frozen_doc_plan_service import FrozenDocPlanService
 from docforge_core.agents.human_confirm_gate import HumanConfirmGate
 from docforge_core.agents.human_confirm_pipeline_service import HumanConfirmPipelineService
 from docforge_core.agents.outline_agent import OutlineAgent
-from docforge_core.agents.product_understanding_agent import ProductUnderstandingAgent
-from docforge_core.agents.reference_style_agent import ReferenceStyleAgent
 from docforge_core.agents.revision_loop_service import RevisionLoopService
-from docforge_core.agents.software_diagnosis_agent import SoftwareDiagnosisAgent
-from docforge_core.agents.template_strategy_agent import TemplateStrategyAgent
-from docforge_core.agents.understanding_pipeline_service import UnderstandingPipelineService
 from docforge_core.agents.writer_agent import WriterAgent
 from docforge_core.domain.enums import SourceType, WorkflowStatus
 from docforge_core.domain.schemas import TemplateConfirmationDecision
@@ -26,7 +20,8 @@ from docforge_core.io.file_registry import SourceFileRegistry
 from docforge_core.io.state_store import StateStore
 from docforge_core.llm.provider_factory import create_llm_provider
 from docforge_core.parsers.source_parsing_service import SourceParsingService
-from docforge_core.workflow import WorkflowOrchestratorService, WorkflowServiceRegistry
+from docforge_core.workflow import WorkflowOrchestratorService, build_workflow_orchestrator
+from docforge_core.workflow.wiring import LazyWriterAgent as _LazyWriterAgent
 from docforge_core.workflow.diagnostics import WorkflowDiagnosticsService
 from docforge_core.workflow.e2e_sample_runner import load_e2e_sample_project
 from docforge_core.workflow.user_facing_errors import UserFacingErrorMapper
@@ -68,111 +63,12 @@ def main() -> None:
         _render_state_table(store, run_id)
 
 
+def _build_workflow_orchestrator(store: StateStore) -> WorkflowOrchestratorService:
+    return build_workflow_orchestrator(store)
+
+
 def _create_ui_llm_provider():
     return create_llm_provider()
-
-
-class _LazyLLMService:
-    def __init__(self, factory):
-        self._factory = factory
-        self._service = None
-
-    def _get(self):
-        if self._service is None:
-            self._service = self._factory()
-        return self._service
-
-
-class _LazyUnderstandingPipelineService(_LazyLLMService):
-    def run_until_template_recommended(self, run_id: str):
-        return self._get().run_until_template_recommended(run_id)
-
-
-class _LazyOutlineAgent(_LazyLLMService):
-    def create_outline(self, run_id: str):
-        return self._get().create_outline(run_id)
-
-
-class _LazyPlanQualityGate(_LazyLLMService):
-    def run(self, run_id: str):
-        return self._get().run(run_id)
-
-
-class _LazyWriterAgent(_LazyLLMService):
-    def write_v1_draft(self, run_id: str):
-        return self._get().write_v1_draft(run_id)
-
-
-class _LazyAuditAgent(_LazyLLMService):
-    def audit_draft(self, run_id: str):
-        return self._get().audit_draft(run_id)
-
-
-class _LazyRevisionLoopService(_LazyLLMService):
-    def run_quality_gate_for_current_draft(self, run_id: str):
-        return self._get().run_quality_gate_for_current_draft(run_id)
-
-    def revise_current_draft(self, run_id: str):
-        return self._get().revise_current_draft(run_id)
-
-    def audit_revised_draft(self, run_id: str):
-        return self._get().audit_revised_draft(run_id)
-
-
-def _build_workflow_orchestrator(store: StateStore) -> WorkflowOrchestratorService:
-    return WorkflowOrchestratorService(
-        state_store=store,
-        services=WorkflowServiceRegistry(
-            source_parsing_service=SourceParsingService(data_dir=store.data_dir),
-            evidence_service=EvidenceExtractorService(data_dir=store.data_dir),
-            understanding_pipeline_service=_LazyUnderstandingPipelineService(
-                lambda: _create_understanding_pipeline_with_ui_provider(store)
-            ),
-            human_confirm_gate=HumanConfirmGate(store),
-            frozen_doc_plan_service=FrozenDocPlanService(store),
-            outline_agent=_LazyOutlineAgent(
-                lambda: OutlineAgent(store, llm_provider=_create_ui_llm_provider())
-            ),
-            plan_quality_gate=_LazyPlanQualityGate(
-                lambda: PlanQualityGate(store, llm_provider=_create_ui_llm_provider())
-            ),
-            writer_agent=_LazyWriterAgent(
-                lambda: WriterAgent(store, llm_provider=_create_ui_llm_provider())
-            ),
-            figure_slot_planner=FigureSlotPlannerService(store),
-            audit_agent=_LazyAuditAgent(
-                lambda: AuditAgentService(store, llm_provider=_create_ui_llm_provider())
-            ),
-            revision_loop_service=_LazyRevisionLoopService(
-                lambda: RevisionLoopService(store, llm_provider=_create_ui_llm_provider())
-            ),
-            docx_export_service=DocxExportService(store),
-        ),
-    )
-
-
-def _create_understanding_pipeline_with_ui_provider(
-    store: StateStore,
-) -> UnderstandingPipelineService:
-    llm_provider = _create_ui_llm_provider()
-    return UnderstandingPipelineService(
-        reference_style_agent=ReferenceStyleAgent(store, llm_provider=llm_provider),
-        product_understanding_agent=ProductUnderstandingAgent(
-            store,
-            llm_provider=llm_provider,
-        ),
-        software_diagnosis_agent=SoftwareDiagnosisAgent(
-            store,
-            llm_provider=llm_provider,
-        ),
-        template_strategy_agent=TemplateStrategyAgent(
-            store,
-            llm_provider=llm_provider,
-        ),
-        require_reference_style=True,
-        require_product_evidence=True,
-        require_current_capabilities=True,
-    )
 
 
 def _build_template_confirmation_decision(

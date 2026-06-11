@@ -9,6 +9,8 @@
 - Vue3 三栏式 Agent 工作台已经完成，并作为 v0.1 正式产品入口。
 - FastAPI API 适配层已经完成。
 - Vue 工作台已经接入真实 FastAPI，同时保留 mock 模式。
+- 用户上传自有产品资料后，可在 Agent 对话区回复“开始”启动主流程；进入后续阶段后可回复“继续”。这些文本只作为结构化 action 指令，不进入产品事实证据链。
+- FastAPI 与 Streamlit 入口复用统一 workflow 服务装配，FastAPI 正式入口不再创建空 orchestrator。
 - Sprint 4 UX 验收已经通过。
 - Streamlit 入口仍然保留，但定位为开发调试入口 / 旧 Demo 入口。
 - 最终用户产物为普通版 DOCX 或风险版 DOCX。
@@ -36,7 +38,7 @@ app/main.py
 启动 FastAPI：
 
 ```bash
-python -m uvicorn api.main:app --reload
+.venv/bin/python -m uvicorn api.main:app --reload
 ```
 
 启动 Vue 前端：
@@ -73,6 +75,13 @@ docforge_core 核心业务模块
 - FastAPI 负责 WorkspaceView API、Source Upload API、Run Action API、Diagnostics API、Artifact Download API、用户可读状态映射、action 状态校验，并防止前端绕过 workflow。
 - `docforge_core` 负责 workflow 状态机、Agent / Service、Evidence、FrozenDocPlan、QualityGate、DOCX 导出、Qdrant 检索和状态持久化。
 - Streamlit 只负责开发调试和旧 Demo 验证。
+
+当前主流程启动口径：
+
+- 上传自有产品文档后，WorkspaceView 会返回“回复开始”的 Agent 引导；主流程已启动后，前端会引导回复“继续”。
+- 前端识别“开始 / 开始写作 / 开始生成 / 继续”，调用 `POST /api/runs/{run_id}/actions/start`。
+- `/actions/start` 会检查自有产品文档、模型配置和当前状态，然后通过 workflow orchestrator 推进到用户确认点、可解释错误或终态。
+- 外部参考资料和产品截图不能作为启动主流程的产品事实依据。
 
 ## 事实来源
 
@@ -215,7 +224,8 @@ OrchestratorAgent 启动任务
 - 不做登录权限。
 - 不做多项目管理。
 - 不做 SSE。
-- `confirm-product-type` / `confirm-doc-plan` 完整后端确认流仍待后续。
+- `confirm-product-type` / `confirm-doc-plan` 已接入真实确认、确认审计记录与 `FrozenDocPlan` 冻结。
+- 默认无冲突场景支持条件自动确认；风险、冲突、证据不足和策略中途变更仍进入人工确认或重启评估。
 - 不导出 PDF。
 - 不导出独立审计报告。
 - 不做截图 OCR。

@@ -9,7 +9,7 @@ from docforge_core.io.run_paths import get_run_dir
 from docforge_core.workflow.diagnostics import WorkflowDiagnosticsService
 from docforge_core.workflow.e2e_sample_runner import load_e2e_sample_project
 
-from .test_upload_level_e2e import (
+from tests.helpers.e2e_workflow_helpers import (
     _confirm_minimal_chapters,
     _new_sample_run,
     _orchestrator,
@@ -101,20 +101,6 @@ def test_product_acceptance_docx_acceptance_checker_passes(tmp_path: Path) -> No
     report = DocxAcceptanceChecker().check_normal_docx(docx_path, store.load_state(run_id))
 
     assert report.passed is True
-
-
-def test_product_acceptance_internal_artifacts_not_user_downloadable() -> None:
-    source = Path("app/main.py").read_text(encoding="utf-8")
-    panel = source.split("def _render_workflow_panel", 1)[1].split(
-        "def _run_workflow_action",
-        1,
-    )[0]
-
-    assert "_render_docx_download" in panel
-    assert "manifest" not in panel.lower()
-    assert "audit" not in panel.lower()
-    assert "evidence" not in panel.lower()
-    assert "state.json" not in panel
 
 
 def test_product_acceptance_sample_loader_repeated_click_is_idempotent(

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from docforge_core.agents.human_confirm_gate import HumanConfirmGate
 from docforge_core.domain.enums import (
     ConfirmationStatus,
     ConfirmationType,
@@ -376,6 +377,54 @@ def test_submit_human_confirmation_freezes_plan_without_auto_default(
     assert gate.confirmed_decision is not None
     assert gate.confirmed_decision.accepted_recommendation is False
     assert gate.confirmed_decision.selected_base_template_id == "CUSTOM_TEMPLATE"
+
+
+def test_auto_confirmation_still_calls_gate_and_freezer_with_audit_metadata(
+    tmp_path: Path,
+) -> None:
+    store, run_id = _store(tmp_path)
+    state = store.load_state(run_id)
+    state.workflow_status = WorkflowStatus.USER_CONFIRM_REQUIRED
+    state.next_action = NextAction.ASK_HUMAN_CONFIRMATION
+    state.diagnosis_result = DiagnosisResult(primary_type="Web/SaaS 平台")
+    state.template_strategy = TemplateStrategy(
+        base_template_id="TEMPLATE_WEB",
+        base_template_name="Web 模板",
+        recommended_chapters=["引言"],
+    )
+    state.human_confirmations.append(
+        HumanConfirmation(
+            confirmation_type=ConfirmationType.TEMPLATE_STRATEGY,
+            prompt="确认模板",
+        )
+    )
+    store.save_state(state)
+    orchestrator = WorkflowOrchestratorService(
+        store,
+        WorkflowServiceRegistry(
+            human_confirm_gate=HumanConfirmGate(store),
+            frozen_doc_plan_service=FakeFrozenPlanService(store),
+        ),
+    )
+    decision = TemplateConfirmationDecision(
+        selected_base_template_id="TEMPLATE_WEB",
+        selected_base_template_name="Web 模板",
+        selected_top_level_chapters=["引言"],
+    )
+
+    summary = orchestrator.submit_human_confirmation(
+        run_id,
+        decision,
+        confirmation_source="auto",
+        confirmation_metadata={"message": "自动确认完成"},
+    )
+
+    assert summary.success is True
+    reloaded = store.load_state(run_id)
+    confirmation = reloaded.human_confirmations[0]
+    assert confirmation.status == ConfirmationStatus.CONFIRMED
+    assert confirmation.metadata["confirmation_source"] == "auto"
+    assert confirmation.metadata["product_and_doc_strategy_confirmation"]["message"] == "自动确认完成"
 
 
 def test_unsupported_action_does_not_advance_state(tmp_path: Path) -> None:

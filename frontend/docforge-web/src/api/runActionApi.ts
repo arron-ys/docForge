@@ -3,6 +3,8 @@ import { mapWorkspace } from "@/api/viewModelMapper";
 import type { ActionResultApi } from "@/api/apiTypes";
 import type { AgentCardAction, WorkspaceAction, WorkspaceState } from "@/types/workspace";
 
+const WORKFLOW_ACTION_TIMEOUT_MS = 180_000;
+
 const NEXT_ACTION_TYPES = new Set<string>([
   "parse_sources",
   "analyze_reference_style",
@@ -10,7 +12,6 @@ const NEXT_ACTION_TYPES = new Set<string>([
   "extract_evidence",
   "diagnose_software_type",
   "recommend_template",
-  "ask_human_confirmation",
   "freeze_doc_plan",
   "create_outline",
   "run_plan_quality_gate",
@@ -36,6 +37,12 @@ const RISK_EXPORT_ACTION_TYPES = new Set<string>([
   "export-risk-docx",
 ]);
 
+const CONFIRM_ACTION_TYPES = new Set<string>([
+  "ask_human_confirmation",
+  "confirm_doc_plan",
+  "confirm-doc-plan",
+]);
+
 export async function runWorkspaceAction(
   runId: string,
   action: AgentCardAction | WorkspaceAction,
@@ -43,7 +50,23 @@ export async function runWorkspaceAction(
   const endpoint = endpointForAction(action.actionType);
   const response = await httpClient.post<ActionResultApi>(
     `/runs/${encodeURIComponent(runId)}/actions/${endpoint}`,
-    requestPayloadForEndpoint(endpoint),
+    requestPayloadForEndpoint(endpoint, action),
+    { timeout: WORKFLOW_ACTION_TIMEOUT_MS },
+  );
+
+  return {
+    message: response.data.message,
+    workspace: response.data.workspace ? mapWorkspace(response.data.workspace) : null,
+  };
+}
+
+export async function runStartAction(
+  runId: string,
+): Promise<{ message: string; workspace: WorkspaceState | null }> {
+  const response = await httpClient.post<ActionResultApi>(
+    `/runs/${encodeURIComponent(runId)}/actions/start`,
+    {},
+    { timeout: WORKFLOW_ACTION_TIMEOUT_MS },
   );
 
   return {
@@ -62,6 +85,9 @@ function endpointForAction(actionType: string): string {
   if (RISK_EXPORT_ACTION_TYPES.has(actionType)) {
     return "export-risk-docx";
   }
+  if (CONFIRM_ACTION_TYPES.has(actionType)) {
+    return "confirm-doc-plan";
+  }
   if (
     actionType === "confirm-product-type" ||
     actionType === "confirm_product_type" ||
@@ -76,7 +102,13 @@ function endpointForAction(actionType: string): string {
   throw new Error("当前按钮尚未接入后端执行流程，请刷新工作台后选择当前可执行动作。");
 }
 
-function requestPayloadForEndpoint(endpoint: string): Record<string, unknown> {
+function requestPayloadForEndpoint(
+  endpoint: string,
+  action: AgentCardAction | WorkspaceAction,
+): Record<string, unknown> {
+  if (action.payload) {
+    return action.payload;
+  }
   if (endpoint === "confirm-product-type") {
     return {
       selected_product_type: "agent_recommendation",

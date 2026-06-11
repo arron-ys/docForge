@@ -85,6 +85,21 @@ class WorkspaceSettingsView(BaseModel):
     product_type_hint: str = "agent_decide"
     doc_output_type: str = "product_feature_description"
     reference_style_strength: str = "medium"
+    strategy_change_mode: Literal["direct", "reevaluate", "restart"] = "direct"
+
+
+class ConfirmationStateView(BaseModel):
+    required: bool = False
+    auto_confirmed: bool = False
+    can_auto_confirm: bool = False
+    reason: str = ""
+    recommended_product_type: str = ""
+    user_selected_product_type: str = ""
+    product_type_conflict: bool = False
+    recommended_doc_type: str = ""
+    selected_doc_type: str = ""
+    reference_style_strength: str = "medium"
+    message: str = ""
 
 
 class DiagnosticIssueView(BaseModel):
@@ -119,6 +134,7 @@ class AgentMessageView(BaseModel):
     event_id: str | None = None
     event_type: str | None = None
     is_user_visible: bool = True
+    card: dict[str, object] | None = None
 
 
 class LastErrorView(BaseModel):
@@ -133,6 +149,7 @@ class WorkspaceView(BaseModel):
     export_artifacts: list[ExportArtifactView]
     messages: list[AgentMessageView]
     settings: WorkspaceSettingsView
+    confirmation_state: ConfirmationStateView | None = None
     diagnostics: DiagnosticSummaryView
     available_actions: list[AgentActionView]
     primary_action: AgentActionView | None = None
@@ -156,11 +173,39 @@ class ConfirmProductTypeRequest(BaseModel):
     selected_product_type: str
     use_agent_recommendation: bool = False
     reason: str | None = None
+    selected_doc_type: Literal[
+        "user_manual", "product_feature_description", "technical_design"
+    ] | None = None
+    reference_style_strength: Literal["weak", "medium", "strong"] | None = None
+    confirmation_source: Literal["manual", "auto"] = "manual"
+    user_note: str | None = None
 
 
 class ConfirmDocPlanRequest(BaseModel):
     accepted: bool = True
     note: str | None = None
+    selected_product_type: str | None = None
+    selected_doc_type: Literal[
+        "user_manual", "product_feature_description", "technical_design"
+    ] | None = None
+    reference_style_strength: Literal["weak", "medium", "strong"] | None = None
+    use_agent_recommendation: bool = True
+    confirmation_source: Literal["manual", "auto"] = "manual"
+
+
+class RunSettingsUpdateRequest(BaseModel):
+    product_type_hint: Literal[
+        "saas_web_platform",
+        "ai_platform",
+        "data_platform",
+        "industrial_software",
+        "tool_software",
+        "agent_decide",
+    ] = "agent_decide"
+    doc_output_type: Literal[
+        "user_manual", "product_feature_description", "technical_design"
+    ] = "product_feature_description"
+    reference_style_strength: Literal["weak", "medium", "strong"] = "medium"
 
 
 class UploadNoteRequest(BaseModel):

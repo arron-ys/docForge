@@ -181,7 +181,7 @@ Sprint6 的关键纠偏：废弃关键词主导能力判断，改为 Evidence-gr
 - 不做登录权限。
 - 不做多项目管理。
 - 不做 SSE。
-- `confirm-product-type` / `confirm-doc-plan` 完整后端确认流仍待后续。
+- `confirm-product-type` / `confirm-doc-plan` 真实确认与条件自动确认已完成；受控目录编辑仍待后续。
 - 不导出 PDF。
 - 不导出独立审计报告。
 - 不做截图 OCR。

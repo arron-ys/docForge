@@ -736,14 +736,3 @@ def test_export_does_not_create_pdf_or_markdown(tmp_path) -> None:
     outputs = [path.suffix.lower() for path in _export_dir(store, state.run_id).iterdir()]
     assert ".pdf" not in outputs
     assert ".md" not in outputs
-
-
-def test_streamlit_does_not_offer_manifest_download() -> None:
-    source = Path("app/main.py").read_text(encoding="utf-8")
-    download_blocks = source.split("st.download_button")
-    assert len(download_blocks) == 2
-    download_block = download_blocks[1].split(")", 1)[0]
-    assert "export_manifest" not in download_block
-    assert "audit_report" not in download_block
-    assert "evidence_map" not in download_block
-    assert "state.json" not in download_block

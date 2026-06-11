@@ -88,6 +88,7 @@ export interface RunListItem {
 
 export type AgentActionType =
   | "open_upload"
+  | "start"
   | "parse_sources"
   | "analyze_reference_style"
   | "understand_product"
@@ -137,6 +138,7 @@ export interface AgentCardAction {
   disabled?: boolean;
   requiresConfirmation?: boolean;
   description?: string;
+  payload?: Record<string, unknown>;
 }
 
 export interface WorkspaceAction {
@@ -146,6 +148,7 @@ export interface WorkspaceAction {
   primary: boolean;
   disabled: boolean;
   description?: string;
+  payload?: Record<string, unknown>;
 }
 
 export type AgentCardType =
@@ -266,6 +269,21 @@ export interface WorkspaceSettings {
   productTypeHint: ProductTypeOption;
   docOutputType: DocOutputType;
   referenceStyleStrength: ReferenceStyleStrength;
+  strategyChangeMode: "direct" | "reevaluate" | "restart";
+}
+
+export interface ConfirmationState {
+  required: boolean;
+  autoConfirmed: boolean;
+  canAutoConfirm: boolean;
+  reason: string;
+  recommendedProductType: string;
+  userSelectedProductType: string;
+  productTypeConflict: boolean;
+  recommendedDocType: string;
+  selectedDocType: string;
+  referenceStyleStrength: string;
+  message: string;
 }
 
 export interface DiagnosticSummary {
@@ -286,6 +304,7 @@ export interface WorkspaceState {
   exportArtifacts: ExportArtifact[];
   messages: AgentMessage[];
   settings: WorkspaceSettings;
+  confirmationState?: ConfirmationState;
   diagnostics: DiagnosticSummary;
   availableActions: WorkspaceAction[];
   primaryAction?: WorkspaceAction;

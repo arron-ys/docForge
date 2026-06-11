@@ -13,7 +13,14 @@ from .orchestrator import (
     WorkflowServiceRegistry,
     WorkflowStepResult,
 )
+from .auto_confirmation import AutoConfirmationDecision, AutoConfirmationPolicy
+from .strategy_reset import (
+    StrategyResetService,
+    StrategyRestartRequiredError,
+    strategy_change_mode,
+)
 from .user_facing_errors import UserFacingError, UserFacingErrorMapper
+from .wiring import build_workflow_orchestrator, build_workflow_service_registry
 
 __all__ = [
     "UserFacingError",
@@ -27,4 +34,11 @@ __all__ = [
     "WorkflowRunSummary",
     "WorkflowServiceRegistry",
     "WorkflowStepResult",
+    "AutoConfirmationDecision",
+    "AutoConfirmationPolicy",
+    "StrategyResetService",
+    "StrategyRestartRequiredError",
+    "strategy_change_mode",
+    "build_workflow_orchestrator",
+    "build_workflow_service_registry",
 ]

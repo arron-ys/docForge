@@ -11,6 +11,7 @@ from api.schemas import (
     CreateRunRequest,
     CreateRunResponse,
     RunListView,
+    RunSettingsUpdateRequest,
 )
 from api.services.run_action_service import RunActionService
 from api.services.workspace_view_service import WorkspaceViewService
@@ -42,24 +43,53 @@ def run_next_action(
     return service.run_next(run_id)
 
 
-@router.post("/runs/{run_id}/actions/confirm-product-type", response_model=ActionResultView)
-def confirm_product_type(
+@router.post("/runs/{run_id}/actions/start", response_model=ActionResultView)
+def start_action(
     run_id: str,
-    _payload: ConfirmProductTypeRequest,
     service: RunActionService = Depends(get_run_action_service),
 ) -> ActionResultView:
     validate_run_id(run_id)
-    return service.confirm_product_type(run_id)
+    return service.start(run_id)
+
+
+@router.post("/runs/{run_id}/actions/confirm-product-type", response_model=ActionResultView)
+def confirm_product_type(
+    run_id: str,
+    payload: ConfirmProductTypeRequest,
+    service: RunActionService = Depends(get_run_action_service),
+) -> ActionResultView:
+    validate_run_id(run_id)
+    return service.confirm_product_type(run_id, payload)
 
 
 @router.post("/runs/{run_id}/actions/confirm-doc-plan", response_model=ActionResultView)
 def confirm_doc_plan(
     run_id: str,
-    _payload: ConfirmDocPlanRequest,
+    payload: ConfirmDocPlanRequest,
     service: RunActionService = Depends(get_run_action_service),
 ) -> ActionResultView:
     validate_run_id(run_id)
-    return service.confirm_doc_plan(run_id)
+    return service.confirm_doc_plan(run_id, payload)
+
+
+@router.post("/runs/{run_id}/settings", response_model=ActionResultView)
+def update_run_settings(
+    run_id: str,
+    payload: RunSettingsUpdateRequest,
+    service: RunActionService = Depends(get_run_action_service),
+) -> ActionResultView:
+    validate_run_id(run_id)
+    return service.update_settings(run_id, payload)
+
+
+@router.post("/runs/{run_id}/restart-strategy", response_model=ActionResultView)
+def restart_strategy(
+    run_id: str,
+    payload: RunSettingsUpdateRequest,
+    service: RunActionService = Depends(get_run_action_service),
+) -> ActionResultView:
+    validate_run_id(run_id)
+    return service.restart_strategy(run_id, payload)
 
 
 @router.post("/runs/{run_id}/actions/export-final-docx", response_model=ActionResultView)

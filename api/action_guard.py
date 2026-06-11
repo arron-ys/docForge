@@ -43,6 +43,32 @@ ACTION_RULES: dict[str, ActionRule] = {
         ),
         user_error="当前还不能自动推进，请先完成资料上传或人工确认。",
     ),
+    "start": ActionRule(
+        endpoint_action="start",
+        allowed_statuses=frozenset(
+            status
+            for status in WorkflowStatus
+            if status
+            not in {
+                WorkflowStatus.CREATED,
+                WorkflowStatus.USER_CONFIRM_REQUIRED,
+                WorkflowStatus.FINAL_EXPORTED,
+                WorkflowStatus.RISK_EXPORTED,
+                WorkflowStatus.FAILED,
+            }
+        ),
+        allowed_next_actions=frozenset(
+            action
+            for action in NextAction
+            if action
+            not in {
+                NextAction.INGEST_MATERIALS,
+                NextAction.ASK_HUMAN_CONFIRMATION,
+                NextAction.STOP,
+            }
+        ),
+        user_error="当前还不能启动主流程，请先上传自有产品资料或完成人工确认。",
+    ),
     "confirm-product-type": ActionRule(
         endpoint_action="confirm-product-type",
         allowed_statuses=frozenset({WorkflowStatus.USER_CONFIRM_REQUIRED}),
@@ -91,4 +117,3 @@ class ActionGuard:
             raise action_not_allowed(rule.user_error)
         if state.next_action not in rule.allowed_next_actions:
             raise action_not_allowed(rule.user_error)
-

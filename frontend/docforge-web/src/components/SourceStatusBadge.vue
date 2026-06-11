@@ -29,8 +29,10 @@ const normalizedStatus = computed<NormalizedStatus>(() => {
 });
 
 const label = computed(() => {
-  const labels: Record<NormalizedStatus, string> = {
-    pending: "待解析",
+  if (normalizedStatus.value === "pending") {
+    return props.apiKeyConfigured ? "待开始" : "待配置";
+  }
+  const labels: Record<Exclude<NormalizedStatus, "pending">, string> = {
     parsing: "解析中",
     parsed: "已解析",
     failed: "解析失败",
@@ -53,11 +55,11 @@ const tagType = computed<"info" | "success" | "warning" | "danger">(() => {
 const tooltip = computed(() => {
   if (normalizedStatus.value === "pending") {
     return props.apiKeyConfigured
-      ? "资料已上传，等待后端解析。"
-      : "未配置模型 API 密钥，资料待解析。当前版本真实解析仍以后端服务配置为准。";
+      ? "资料已上传，模型密钥已可用。回复“开始”后系统将开始解析。"
+      : "资料已上传。请先配置并测试模型密钥。";
   }
   if (normalizedStatus.value === "parsing") {
-    return "正在解析资料并写入知识库，当前版本暂不显示具体百分比。";
+    return "正在解析资料并构建证据。";
   }
   if (normalizedStatus.value === "parsed") {
     return props.parsedTooltip;

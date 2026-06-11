@@ -21,6 +21,8 @@ from ._shared import transition
 from .confirmation_decision_validator import validate_template_confirmation_decision
 
 DECISION_METADATA_KEY = "template_confirmation_decision"
+CONFIRMATION_SOURCE_KEY = "confirmation_source"
+CONFIRMATION_RESULT_KEY = "product_and_doc_strategy_confirmation"
 
 
 class HumanConfirmGate:
@@ -82,6 +84,9 @@ class HumanConfirmGate:
         self,
         run_id: str,
         decision: TemplateConfirmationDecision,
+        *,
+        confirmation_source: str = "manual",
+        confirmation_metadata: dict[str, object] | None = None,
     ) -> DocForgeState:
         state = self.state_store.load_state(run_id)
         if state.workflow_status != WorkflowStatus.USER_CONFIRM_REQUIRED:
@@ -105,13 +110,20 @@ class HumanConfirmGate:
         confirmation.user_notes = decision.user_notes
         confirmation.confirmed_at = confirmed_at
         confirmation.metadata[DECISION_METADATA_KEY] = decision.model_dump(mode="json")
+        confirmation.metadata[CONFIRMATION_SOURCE_KEY] = confirmation_source
+        if confirmation_metadata:
+            confirmation.metadata[CONFIRMATION_RESULT_KEY] = dict(confirmation_metadata)
         transition(
             state,
             WorkflowStatus.USER_CONFIRM_REQUIRED,
             WorkflowStatus.USER_CONFIRMED,
             NextAction.FREEZE_DOC_PLAN,
             "HumanConfirmGate.confirm_template_strategy",
-            "template strategy confirmed by human",
+            (
+                "template strategy conditionally auto-confirmed"
+                if confirmation_source == "auto"
+                else "template strategy confirmed by human"
+            ),
         )
         self.state_store.save_state(state)
         return state

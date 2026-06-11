@@ -225,6 +225,9 @@ class WorkflowOrchestratorService:
         self,
         run_id: str,
         decision: TemplateConfirmationDecision,
+        *,
+        confirmation_source: str = "manual",
+        confirmation_metadata: dict[str, object] | None = None,
     ) -> WorkflowRunSummary:
         """Submit a real human decision and freeze the plan through existing services."""
         before = self.state_store.load_state(run_id)
@@ -260,7 +263,15 @@ class WorkflowOrchestratorService:
             artifact_snapshot = self._snapshot_business_artifacts_full(run_id)
             gate = self._required_service("human_confirm_gate")
             freezer = self._required_service("frozen_doc_plan_service")
-            gate.confirm_template_strategy(run_id, decision)
+            if confirmation_source == "manual" and not confirmation_metadata:
+                gate.confirm_template_strategy(run_id, decision)
+            else:
+                gate.confirm_template_strategy(
+                    run_id,
+                    decision,
+                    confirmation_source=confirmation_source,
+                    confirmation_metadata=confirmation_metadata,
+                )
             freezer.freeze_confirmed_plan(run_id)
             after = self.state_store.load_state(run_id)
             self._post_guard(before, after, definition, artifact_snapshot)

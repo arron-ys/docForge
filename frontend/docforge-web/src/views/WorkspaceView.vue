@@ -24,7 +24,9 @@ const modelConfig = ref<ModelConfigApi | null>(null);
 const apiKeyConfigured = computed(
   () =>
     Boolean(modelConfig.value?.llm?.has_api_key) &&
-    Boolean(modelConfig.value?.embedding?.has_api_key),
+    Boolean(modelConfig.value?.llm?.verified) &&
+    Boolean(modelConfig.value?.embedding?.has_api_key) &&
+    Boolean(modelConfig.value?.embedding?.verified),
 );
 
 const queryRunId = computed(() => {

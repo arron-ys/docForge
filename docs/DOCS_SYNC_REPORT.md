@@ -100,7 +100,7 @@
 建议后续人工只做轻量复核：
 
 - 确认实际本地环境的 Python / Node / pnpm 安装命令是否需要补充平台差异说明。
-- 确认 `confirm-product-type` / `confirm-doc-plan` 后端能力完成后，同步更新本地试用手册和前端 README。
+- `confirm-product-type` / `confirm-doc-plan` 后端能力、条件自动确认、本地试用手册和前端 README 已同步。
 - 如果未来新增 Word 格式项目说明文档，建议迁移为 Markdown，便于版本控制和自动扫描。
 
 ## 八、前端工具链补充同步

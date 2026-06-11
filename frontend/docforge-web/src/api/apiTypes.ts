@@ -73,12 +73,28 @@ export interface AgentActionApi {
   primary: boolean;
   disabled: boolean;
   description: string | null;
+  payload?: Record<string, unknown>;
 }
 
 export interface WorkspaceSettingsApi {
   product_type_hint: string;
   doc_output_type: string;
   reference_style_strength: string;
+  strategy_change_mode: "direct" | "reevaluate" | "restart";
+}
+
+export interface ConfirmationStateApi {
+  required: boolean;
+  auto_confirmed: boolean;
+  can_auto_confirm: boolean;
+  reason: string;
+  recommended_product_type: string;
+  user_selected_product_type: string;
+  product_type_conflict: boolean;
+  recommended_doc_type: string;
+  selected_doc_type: string;
+  reference_style_strength: string;
+  message: string;
 }
 
 export interface DiagnosticIssueApi {
@@ -113,6 +129,7 @@ export interface AgentMessageApi {
   event_id: string | null;
   event_type: string | null;
   is_user_visible: boolean;
+  card?: Record<string, unknown> | null;
 }
 
 export interface LastErrorApi {
@@ -127,6 +144,7 @@ export interface WorkspaceApi {
   export_artifacts: ExportArtifactApi[];
   messages: AgentMessageApi[];
   settings: WorkspaceSettingsApi;
+  confirmation_state: ConfirmationStateApi | null;
   diagnostics: DiagnosticSummaryApi;
   available_actions: AgentActionApi[];
   primary_action: AgentActionApi | null;

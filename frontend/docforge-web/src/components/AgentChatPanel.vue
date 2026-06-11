@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { Promotion, Upload } from "@element-plus/icons-vue";
 
 import MessageBubble from "@/components/MessageBubble.vue";
@@ -10,6 +10,7 @@ const props = defineProps<{
   primaryAction?: WorkspaceAction;
   uploadAction?: WorkspaceAction;
   sending: boolean;
+  apiKeyConfigured: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -19,6 +20,48 @@ const emit = defineEmits<{
 
 const draft = ref("");
 const scrollArea = ref<HTMLElement | null>(null);
+
+const composerPlaceholder = computed(() => {
+  if (props.sending) {
+    return "正在执行，请稍候";
+  }
+  if (!props.apiKeyConfigured) {
+    return "请先配置并测试模型密钥";
+  }
+  if (props.primaryAction?.actionType === "parse_sources") {
+    return "回复“开始”以启动软著生成流程";
+  }
+  if (props.primaryAction?.actionType === "ask_human_confirmation") {
+    return "请先确认产品类型和文档策略";
+  }
+  if (!props.primaryAction || props.primaryAction.disabled) {
+    return "请先上传自有产品资料";
+  }
+  return "可输入“继续”执行当前主流程";
+});
+
+const primaryActionLabel = computed(() => {
+  if (props.sending && props.primaryAction?.actionType === "parse_sources") {
+    return "正在解析资料……";
+  }
+  return props.primaryAction ? `备用入口：${props.primaryAction.label}` : "暂无可执行动作";
+});
+
+const introInstruction = computed(() => {
+  if (!props.apiKeyConfigured) {
+    return "请先配置并测试模型密钥。系统会校验每一步，不能跳过必要流程。";
+  }
+  if (props.primaryAction?.actionType === "parse_sources") {
+    return "上传自有产品资料后可回复“开始”。系统会校验每一步，不能跳过必要流程。";
+  }
+  if (props.primaryAction?.actionType === "ask_human_confirmation") {
+    return "当前存在冲突或风险，请在确认卡片中明确选择后继续。";
+  }
+  if (props.primaryAction && !props.primaryAction.disabled) {
+    return "当前可回复“继续”推进主流程，也可使用底部备用入口。";
+  }
+  return "请按当前提示补充资料或完成人工确认。系统会校验每一步。";
+});
 
 function submitMessage() {
   const content = draft.value.trim();
@@ -51,7 +94,7 @@ watch(
     <div ref="scrollArea" class="chat-panel__messages">
       <div class="chat-panel__intro">
         <span>Agent 工作区</span>
-        <strong>请按照当前主操作推进任务。系统会根据任务状态校验每一步，不能跳过必要流程。</strong>
+        <strong>{{ introInstruction }}</strong>
       </div>
       <MessageBubble
         v-for="message in messages"
@@ -81,7 +124,7 @@ watch(
             :disabled="!primaryAction || primaryAction.disabled"
             @click="primaryAction && $emit('trigger-action', primaryAction)"
           >
-            当前主操作：{{ primaryAction?.label ?? "暂无可执行动作" }}
+            {{ primaryActionLabel }}
           </el-button>
         </el-tooltip>
       </div>
@@ -89,13 +132,13 @@ watch(
         {{ primaryAction?.description ?? "当前没有可执行主操作。请先上传资料、刷新诊断，或等待后端完成上一阶段。" }}
       </p>
       <div class="composer-input">
-        <span class="composer-input__label">本地备注，暂不参与生成</span>
+        <span class="composer-input__label">受限指令入口</span>
         <el-input
           v-model="draft"
           :autosize="{ minRows: 2, maxRows: 3 }"
           type="textarea"
           resize="none"
-          placeholder="可记录人工备注。当前版本不会把这里的内容提交给后端生成流程。"
+          :placeholder="composerPlaceholder"
           @keydown.enter.exact.prevent="submitMessage"
         />
         <el-button

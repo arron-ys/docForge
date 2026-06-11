@@ -80,7 +80,7 @@ corepack prepare pnpm@latest --activate
 启动 FastAPI：
 
 ```bash
-python -m uvicorn api.main:app --reload
+.venv/bin/python -m uvicorn api.main:app --reload
 ```
 
 健康检查：
@@ -163,6 +163,20 @@ VITE_DOCFORGE_USE_MOCK=false
 ```
 
 - `VITE_DOCFORGE_USE_MOCK=false`：调用真实 FastAPI，上传真实资料、执行真实 action、下载真实 DOCX。
+
+## v0.1 主流程启动
+
+Vue 工作台是 v0.1 正式入口。配置并测试模型密钥后，上传自有产品文档，Agent 区会提示用户回复“开始”；进入后续阶段后可回复“继续”。“开始 / 开始写作 / 开始生成 / 继续”是受限结构化指令，前端会调用：
+
+```text
+POST /api/runs/{run_id}/actions/start
+```
+
+该指令不会作为产品事实证据。底层仍经过 workflow 状态校验和 action guard；底部主操作按钮仅作为备用入口。
+
+FastAPI 与 Streamlit 入口复用统一 workflow 服务装配，不再各自维护一套 `WorkflowServiceRegistry`。正式 FastAPI 入口会注入资料解析、Evidence 抽取、产品理解、人工确认、写作、审计和 DOCX 导出服务。
+
+资料边界保持不变：外部参考资料只用于目录、章法、配图方式和语言风格；产品截图仅作为配图候选和展示材料，不做 OCR，也不能作为产品事实证据。
 - `VITE_DOCFORGE_USE_MOCK=true`：使用前端内置 mock 数据，只用于检查界面，不代表真实生成结果。
 
 ## 技术栈
@@ -336,7 +350,9 @@ data/runs/{run_id}/exports/
 - 不做登录权限。
 - 不做多项目管理。
 - 不做 SSE。
-- `confirm-product-type` / `confirm-doc-plan` 完整后端确认流仍待后续。
+- 产品类型与文档策略采用条件自动确认；冲突、低置信度、资料不足或证据边界风险时保留人工确认。
+- `confirm-product-type` / `confirm-doc-plan` 已接入真实确认与 `FrozenDocPlan` 冻结流程。
+- 右侧关键策略写入后端 run settings；冻结后修改需显式重启策略评估并失效下游产物。
 - 不导出 PDF。
 - 不导出独立审计报告。
 - 不做截图 OCR。
@@ -347,8 +363,10 @@ data/runs/{run_id}/exports/
 ## 运行测试
 
 ```bash
-.venv/bin/python -m pytest -q
+scripts/test_quick.sh
 ```
+
+普通开发默认先按 [docs/test_impact_matrix.md](docs/test_impact_matrix.md) 选择受影响测试；需要基础后端基线时使用 `scripts/test_quick.sh`。完整回归使用 `scripts/test_full.sh`。更多测试分层和命令说明见 [docs/testing.md](docs/testing.md)。
 
 开发检查：
 

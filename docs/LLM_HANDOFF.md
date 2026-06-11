@@ -184,7 +184,7 @@ LLM 可以做语义理解，但系统必须约束证据：
 优先做：
 
 - Vue 创建任务入口。
-- `confirm-product-type` / `confirm-doc-plan` 完整后端确认流。
+- `confirm-product-type` / `confirm-doc-plan` 已接入真实确认与条件自动确认；后续继续完善人工修改目录表单。
 - 产品级验收测试矩阵。
 - Diagnostics 发现问题后的 fail closed 引导。
 - DOCX acceptance 覆盖。

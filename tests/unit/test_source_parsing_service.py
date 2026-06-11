@@ -39,6 +39,61 @@ def test_parse_run_parses_uploaded_txt_product_material(
     assert parsed_state.parsed_assets[0].asset_type == AssetType.TEXT
 
 
+def test_parse_run_resolves_api_relative_source_path(
+    tmp_path: Path, store: StateStore
+) -> None:
+    state = store.create_initial_state()
+    source_path = tmp_path / "runs" / state.run_id / "sources" / "product" / "prd.txt"
+    source_path.parent.mkdir(parents=True, exist_ok=True)
+    source_path.write_text("产品能力\n\n业务流程", encoding="utf-8")
+    source_item = SourceItem(
+        source_type=SourceType.PRD,
+        file_type=FileType.TXT,
+        corpus_type=CorpusType.PRODUCT_EVIDENCE,
+        allowed_usage=AllowedUsage.FACTUAL_EVIDENCE,
+        file_name="prd.txt",
+        file_path="sources/product/prd.txt",
+        is_product_source=True,
+        parse_status=ParseStatus.PENDING,
+    )
+    store.add_source_item(state.run_id, source_item)
+
+    parsed_state = SourceParsingService(data_dir=tmp_path).parse_run(state.run_id)
+
+    assert parsed_state.source_registry[0].parse_status == ParseStatus.PARSED
+    assert parsed_state.parsed_assets[0].extracted_text_ref == (
+        f"parsed/{source_item.source_id}/chunk_001.txt"
+    )
+
+
+def test_parse_run_resolves_legacy_run_relative_source_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    data_dir = Path("data")
+    store = StateStore(data_dir=data_dir)
+    state = store.create_initial_state()
+    source_path = data_dir / "runs" / state.run_id / "sources" / "product" / "legacy.txt"
+    source_path.parent.mkdir(parents=True, exist_ok=True)
+    source_path.write_text("遗留路径资料", encoding="utf-8")
+    source_item = SourceItem(
+        source_type=SourceType.PRD,
+        file_type=FileType.TXT,
+        corpus_type=CorpusType.PRODUCT_EVIDENCE,
+        allowed_usage=AllowedUsage.FACTUAL_EVIDENCE,
+        file_name="legacy.txt",
+        file_path=str(source_path),
+        is_product_source=True,
+        parse_status=ParseStatus.PENDING,
+    )
+    store.add_source_item(state.run_id, source_item)
+
+    parsed_state = SourceParsingService(data_dir=data_dir).parse_run(state.run_id)
+
+    assert parsed_state.source_registry[0].parse_status == ParseStatus.PARSED
+    assert parsed_state.parsed_assets
+
+
 def test_parse_run_parses_uploaded_md_reference_material(
     tmp_path: Path, store: StateStore
 ) -> None:

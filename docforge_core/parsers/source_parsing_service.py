@@ -92,13 +92,38 @@ class SourceParsingService:
         if parser is None:
             raise ValueError(f"不支持的 file_type: {source_item.file_type}")
 
-        source_path = Path(source_item.file_path)
+        source_path = self._resolve_source_path(run_dir, source_item.file_path)
+        if not source_path.exists():
+            raise FileNotFoundError("找不到已上传文件，请重新上传资料。")
         chunks = parser.parse(source_path)
 
         if isinstance(parser, ImageParser):
             return [self._image_asset(run_dir, source_item, source_path)]
 
         return self._text_assets(run_dir, run_id, source_item, chunks)
+
+    @staticmethod
+    def _resolve_source_path(run_dir: Path, file_path: str) -> Path:
+        raw_path = Path(file_path)
+        if raw_path.is_absolute():
+            resolved = raw_path.resolve()
+        else:
+            run_dir_resolved = run_dir.resolve()
+            resolved = (run_dir / raw_path).resolve()
+            if not resolved.exists():
+                legacy_resolved = raw_path.resolve()
+                try:
+                    legacy_resolved.relative_to(run_dir_resolved)
+                except ValueError:
+                    pass
+                else:
+                    resolved = legacy_resolved
+        run_dir_resolved = run_dir.resolve()
+        try:
+            resolved.relative_to(run_dir_resolved)
+        except ValueError as exc:
+            raise ValueError("已上传文件路径非法，请重新上传资料。") from exc
+        return resolved
 
     def _text_assets(
         self,

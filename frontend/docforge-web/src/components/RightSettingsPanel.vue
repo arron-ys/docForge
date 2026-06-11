@@ -53,7 +53,7 @@ const referenceStyleStrength = computed({
         <el-radio value="agent_decide">让 Agent 根据资料判断</el-radio>
       </el-radio-group>
       <p class="hint-text">
-        这里用于提示系统优先考虑的产品类型。最终结论仍以自有产品资料和人工确认结果为准。
+        这里用于提示系统优先考虑的产品类型。选择“让 Agent 根据资料判断”时，系统会在证据充分且无冲突时自动采用推荐结果。
       </p>
     </section>
 
@@ -68,7 +68,7 @@ const referenceStyleStrength = computed({
         <el-radio value="technical_design">技术设计说明型软著</el-radio>
       </el-radio-group>
       <p class="hint-text">
-        这里用于提示最终文档的写作方向。实际生成仍需要按中间区域的当前主操作推进。
+        这里用于提示最终文档的写作方向。流程开始后修改可能导致文档策略重新生成。
       </p>
     </section>
 
@@ -115,7 +115,7 @@ const referenceStyleStrength = computed({
     <section class="settings-card">
       <div class="settings-card__title">任务推进说明</div>
       <p class="hint-text hint-text--strong">
-        右侧设置只用于当前页面的写作参考。需要推进任务时，请使用中间区域的当前主操作。
+        右侧设置是写作策略偏好，不是最终 FrozenDocPlan。修改会写入后端；进入冻结或生成阶段后修改会要求确认并重新评估。
       </p>
     </section>
 

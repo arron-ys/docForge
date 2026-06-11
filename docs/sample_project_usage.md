@@ -25,7 +25,7 @@ v0.1 正式产品入口是 Vue3 三栏式 Agent 工作台。
 
 推荐步骤：
 
-1. 启动 FastAPI：`python -m uvicorn api.main:app --reload`。
+1. 启动 FastAPI：`.venv/bin/python -m uvicorn api.main:app --reload`。
 2. 启动 Vue 前端：`cd frontend/docforge-web && pnpm dev`。
 3. 可选启动 Streamlit 调试入口：`streamlit run app/main.py`。
 4. 在 Streamlit 调试入口中创建新任务。

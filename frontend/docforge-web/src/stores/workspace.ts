@@ -1,9 +1,11 @@
 import { defineStore } from "pinia";
+import { ElMessageBox } from "element-plus";
 
 import { downloadArtifact as downloadArtifactApi } from "@/api/artifactApi";
 import { DocForgeApiError, useMockApi } from "@/api/httpClient";
 import { getWorkspaceState, sendUserMessage, triggerMockAction } from "@/api/mockClient";
-import { runWorkspaceAction } from "@/api/runActionApi";
+import { runStartAction, runWorkspaceAction } from "@/api/runActionApi";
+import { saveRunSettings } from "@/api/runSettingsApi";
 import { createRun, listRuns } from "@/api/runsApi";
 import { uploadSource, type SourceUploadType } from "@/api/sourceApi";
 import { fetchWorkspace } from "@/api/workspaceApi";
@@ -125,6 +127,27 @@ export const useWorkspaceStore = defineStore("workspace", {
         return;
       }
 
+      if (isStartCommand(trimmed)) {
+        if (
+          this.workspace.confirmationState?.required &&
+          !this.workspace.confirmationState.canAutoConfirm
+        ) {
+          this.appendAgentMessage(
+            "当前存在需要人工确认的产品类型和文档策略，请先在确认卡片中选择后再继续。",
+            "system_notice",
+          );
+          return;
+        }
+        this.workspace.messages.push(
+          createUserTextMessage(trimmed, {
+            runId: this.workspace.runSummary.runId,
+            eventType: "user_message",
+          }),
+        );
+        await this.startMainFlow();
+        return;
+      }
+
       this.sending = true;
       try {
         if (useMockApi) {
@@ -139,7 +162,7 @@ export const useWorkspaceStore = defineStore("workspace", {
           );
           this.workspace.messages.push(
             createAgentTextMessage(
-              "已记录为本页面备注。当前版本不会把这条内容提交给后端生成流程；请使用结构化按钮推进任务。",
+              "当前版本仅支持明确指令，例如“开始”。补充产品事实请通过上传自有产品资料完成；这里的文字不会作为产品事实来源。",
               {
                 runId: this.workspace.runSummary.runId,
                 eventType: "system_notice",
@@ -183,9 +206,20 @@ export const useWorkspaceStore = defineStore("workspace", {
         return;
       }
 
+      if (isStartFlowAction(action)) {
+        this.workspace.messages.push(
+          createUserTextMessage(`你选择了：${action.label}`, {
+            runId: this.workspace.runSummary.runId,
+            eventType: "action_triggered",
+          }),
+        );
+        await this.startMainFlow();
+        return;
+      }
+
       this.actionRunning = true;
       this.workspace.messages.push(
-        createUserTextMessage(`已选择：${action.label}`, {
+        createUserTextMessage(`你选择了：${action.label}`, {
           runId: this.workspace.runSummary.runId,
           eventType: "action_triggered",
         }),
@@ -244,6 +278,109 @@ export const useWorkspaceStore = defineStore("workspace", {
       }
     },
 
+    async startMainFlow() {
+      if (!this.workspace || !this.runId || this.actionRunning) {
+        return;
+      }
+      if (
+        this.workspace.confirmationState?.required &&
+        !this.workspace.confirmationState.canAutoConfirm
+      ) {
+        this.appendAgentMessage(
+          "请先在确认卡片中选择采用系统推荐或保留你的选择，不能用“继续”绕过确认。",
+          "system_notice",
+        );
+        return;
+      }
+
+      this.actionRunning = true;
+      this.markPendingSourcesParsing();
+      this.appendAgentMessage(this.currentWorkflowProgressMessage(), "action_triggered");
+
+      try {
+        if (useMockApi) {
+          const messages = await triggerMockAction({
+            actionId: "action_start",
+            actionType: "start",
+            label: "开始",
+            primary: true,
+            disabled: false,
+          });
+          this.workspace.messages.push(...messages);
+          this.markParsingSourcesParsed();
+        } else {
+          const primaryAction = this.workspace.primaryAction;
+          let result;
+          if (
+            this.workspace.confirmationState?.required &&
+            this.workspace.confirmationState.canAutoConfirm
+          ) {
+            result = await runStartAction(this.runId);
+          } else if (primaryAction?.actionType === "ask_human_confirmation") {
+            result = await runWorkspaceAction(this.runId, primaryAction);
+          } else {
+            result = await runStartAction(this.runId);
+          }
+          if (result.workspace) {
+            this.workspace = mergeWorkspaceMessages(result.workspace, [
+              createAgentTextMessage(result.message, {
+                runId: result.workspace.runSummary.runId,
+                eventType: "action_triggered",
+              }),
+            ]);
+          } else {
+            this.appendSystemMessage(result.message);
+          }
+        }
+        this.clearError();
+      } catch (error) {
+        if (!useMockApi) {
+          await this.refreshWorkspace();
+        }
+        this.recordError(error);
+      } finally {
+        this.actionRunning = false;
+      }
+    },
+
+    markPendingSourcesParsing() {
+      if (!this.workspace) {
+        return;
+      }
+      this.workspace.sources = this.workspace.sources.map((source) =>
+        source.parseStatus === "pending" || source.parseStatus === "saved"
+          ? { ...source, parseStatus: "parsing" }
+          : source,
+      );
+    },
+
+    currentWorkflowProgressMessage(): string {
+      const actionType = this.workspace?.primaryAction?.actionType;
+      const actionLabel = this.workspace?.primaryAction?.label;
+
+      if (actionType === "parse_sources" || actionType === "start_parse_sources") {
+        return "正在解析资料并构建证据……";
+      }
+      if (actionType === "ask_human_confirmation") {
+        return "正在确认产品类型和文档策略……";
+      }
+      if (actionLabel) {
+        return `正在执行：${actionLabel}……`;
+      }
+      return "正在推进当前主流程……";
+    },
+
+    markParsingSourcesParsed() {
+      if (!this.workspace) {
+        return;
+      }
+      this.workspace.sources = this.workspace.sources.map((source) =>
+        source.parseStatus === "parsing" || source.parseStatus === "embedding"
+          ? { ...source, parseStatus: "parsed" }
+          : source,
+      );
+    },
+
     async downloadArtifact(artifact: ExportArtifact) {
       if (!artifact.downloadable || this.downloadingArtifactId) {
         if (!artifact.downloadable) {
@@ -281,37 +418,85 @@ export const useWorkspaceStore = defineStore("workspace", {
       );
     },
 
-    updateProductTypeHint(value: ProductTypeOption) {
+    async updateProductTypeHint(value: ProductTypeOption) {
       if (!this.workspace || this.workspace.settings.productTypeHint === value) {
         return;
       }
-
-      this.workspace.settings.productTypeHint = value;
-      this.appendSettingMessage(
-        `已更新产品类型判断参考：${productTypeLabel(value)}。最终结论仍以自有产品资料和人工确认结果为准。`,
+      await this.updateCriticalSetting(
+        { productTypeHint: value },
+        `已更新产品类型判断参考：${productTypeLabel(value)}。`,
       );
     },
 
-    updateDocOutputType(value: DocOutputType) {
+    async updateDocOutputType(value: DocOutputType) {
       if (!this.workspace || this.workspace.settings.docOutputType === value) {
         return;
       }
-
-      this.workspace.settings.docOutputType = value;
-      this.appendSettingMessage(
-        `已更新输出文档类型：${docOutputTypeLabel(value)}。实际生成仍需要按中间区域的当前主操作推进。`,
+      await this.updateCriticalSetting(
+        { docOutputType: value },
+        `已更新输出文档类型：${docOutputTypeLabel(value)}。`,
       );
     },
 
-    updateReferenceStyleStrength(value: ReferenceStyleStrength) {
+    async updateReferenceStyleStrength(value: ReferenceStyleStrength) {
       if (!this.workspace || this.workspace.settings.referenceStyleStrength === value) {
         return;
       }
-
-      this.workspace.settings.referenceStyleStrength = value;
-      this.appendSettingMessage(
-        `已更新参考风格强度：${referenceStyleStrengthLabel(value)}。外部参考软著仍只能影响目录结构、章法、配图方式和语言风格，不能作为产品事实来源。`,
+      await this.updateCriticalSetting(
+        { referenceStyleStrength: value },
+        `已更新参考风格强度：${referenceStyleStrengthLabel(value)}。外部参考资料仍不能作为产品事实来源。`,
       );
+    },
+
+    async updateCriticalSetting(
+      patch: Partial<Pick<WorkspaceState["settings"], "productTypeHint" | "docOutputType" | "referenceStyleStrength">>,
+      successMessage: string,
+    ) {
+      if (!this.workspace || !this.runId || this.actionRunning) {
+        return;
+      }
+
+      const mode = this.workspace.settings.strategyChangeMode;
+      try {
+        if (mode === "reevaluate") {
+          await ElMessageBox.confirm(
+            "修改关键策略会触发系统重新评估产品类型和文档策略。是否继续？",
+            "重新评估策略",
+            { confirmButtonText: "继续修改", cancelButtonText: "取消", type: "warning" },
+          );
+        } else if (mode === "restart") {
+          await ElMessageBox.confirm(
+            "当前文档策略已确认。修改会终止当前生成流程并重新评估；已上传资料和模型密钥会保留，草稿、风险检查和导出产物可能失效。是否继续？",
+            "确认修改并重新开始",
+            { confirmButtonText: "确认修改并重新开始", cancelButtonText: "取消", type: "warning" },
+          );
+        }
+      } catch (error) {
+        if (error === "cancel" || error === "close") {
+          return;
+        }
+        this.recordError(error);
+        return;
+      }
+
+      const nextSettings = { ...this.workspace.settings, ...patch };
+      this.actionRunning = true;
+      try {
+        if (useMockApi) {
+          this.workspace.settings = nextSettings;
+        } else {
+          const result = await saveRunSettings(this.runId, nextSettings, mode === "restart");
+          if (result.workspace) {
+            this.workspace = result.workspace;
+          }
+        }
+        this.appendSettingMessage(successMessage);
+        this.clearError();
+      } catch (error) {
+        this.recordError(error);
+      } finally {
+        this.actionRunning = false;
+      }
     },
 
     appendSettingMessage(content: string) {
@@ -384,6 +569,19 @@ function isUploadAction(action: AgentCardAction | WorkspaceAction): boolean {
   return action.actionType === "open_upload" || action.actionType === "open_upload_mock";
 }
 
+function isStartFlowAction(action: AgentCardAction | WorkspaceAction): boolean {
+  return (
+    action.actionType === "start" ||
+    action.actionType === "parse_sources" ||
+    action.actionType === "start_parse_sources" ||
+    action.actionType === "ask_human_confirmation"
+  );
+}
+
+function isStartCommand(content: string): boolean {
+  return ["开始", "开始写作", "开始生成", "继续"].includes(content.trim());
+}
+
 function isDownloadAction(action: AgentCardAction | WorkspaceAction): boolean {
   return action.actionType === "download_risk_docx";
 }
@@ -402,9 +600,13 @@ function mergeWorkspaceMessages(
   workspace: WorkspaceState,
   messagesToAppend: AgentMessage[],
 ): WorkspaceState {
+  const existingContents = new Set(workspace.messages.map((message) => message.content));
   return {
     ...workspace,
-    messages: [...workspace.messages, ...messagesToAppend],
+    messages: [
+      ...workspace.messages,
+      ...messagesToAppend.filter((message) => !existingContents.has(message.content)),
+    ],
   };
 }
 
@@ -416,9 +618,9 @@ function normalizeError(error: unknown): {
   if (error instanceof DocForgeApiError) {
     if (error.errorCode === "action_not_allowed") {
       return {
-        message: actionNotAllowedMessage(error.message),
+        message: error.message || "当前状态还不能执行该操作。",
         recoverable: error.recoverable,
-        suggestedAction: actionNotAllowedSuggestion(error.message, error.suggestedAction),
+        suggestedAction: error.suggestedAction || "刷新工作台后重新选择当前可执行动作。",
       };
     }
     if (error.errorCode === "artifact_not_found") {
@@ -453,9 +655,36 @@ function normalizeError(error: unknown): {
     }
     if (error.errorCode === "network_error") {
       return {
-        message: "无法连接 DocForge API，请确认后端服务已启动。",
+        message: error.message || "无法连接 DocForge API，请确认后端服务已启动。",
         recoverable: true,
-        suggestedAction: "启动 python -m uvicorn api.main:app --reload 后重试。",
+        suggestedAction:
+          error.suggestedAction || "确认 http://127.0.0.1:8000/healthz 可访问后重试。",
+      };
+    }
+    if (error.errorCode === "request_timeout") {
+      return {
+        message: error.message,
+        recoverable: true,
+        suggestedAction: error.suggestedAction,
+      };
+    }
+    if (
+      [
+        "workflow_dependency_missing",
+        "model_config_missing",
+        "model_connection_failed",
+        "source_missing",
+        "source_parse_failed",
+        "product_evidence_missing",
+        "screenshot_only_not_allowed",
+        "reference_only_not_allowed",
+        "backend_internal_error",
+      ].includes(error.errorCode)
+    ) {
+      return {
+        message: error.message,
+        recoverable: error.recoverable,
+        suggestedAction: error.suggestedAction,
       };
     }
     return {
@@ -478,20 +707,6 @@ function normalizeError(error: unknown): {
     recoverable: true,
     suggestedAction: "请刷新工作台或重新选择可执行动作。",
   };
-}
-
-function actionNotAllowedMessage(rawMessage: string): string {
-  if (rawMessage.includes("已预留") || rawMessage.includes("后续 Sprint")) {
-    return "该确认动作后端接口已预留，完整确认流程将在后续版本接入。";
-  }
-  return "当前状态还不能执行该操作，请先完成上一阶段。";
-}
-
-function actionNotAllowedSuggestion(rawMessage: string, fallback: string): string {
-  if (rawMessage.includes("已预留") || rawMessage.includes("后续 Sprint")) {
-    return "请继续使用当前可执行的主操作，或等待确认流程接入后再提交该动作。";
-  }
-  return fallback || "刷新工作台后重新选择当前可执行动作。";
 }
 
 function downloadFileName(artifact: ExportArtifact): string {

@@ -3,13 +3,29 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-from docforge_core.domain.enums import NextAction, SourceType, WorkflowStatus
+from docforge_core.agents.human_confirm_gate import (
+    CONFIRMATION_RESULT_KEY,
+    CONFIRMATION_SOURCE_KEY,
+)
+from docforge_core.domain.enums import (
+    AllowedUsage,
+    ConfirmationStatus,
+    ConfirmationType,
+    FileType,
+    NextAction,
+    SourceType,
+    WorkflowStatus,
+)
 from docforge_core.domain.schemas import DocForgeState, SourceItem
 from docforge_core.io.run_paths import get_run_dir
+from docforge_core.workflow.auto_confirmation import AutoConfirmationPolicy
+from docforge_core.workflow.run_settings import get_run_settings
+from docforge_core.workflow.strategy_reset import strategy_change_mode
 
 from .schemas import (
     AgentActionView,
     AgentMessageView,
+    ConfirmationStateView,
     DiagnosticIssueView,
     DiagnosticSummaryView,
     ExportArtifactView,
@@ -24,7 +40,7 @@ from .schemas import (
 
 STATUS_LABELS: dict[str, str] = {
     "CREATED": "项目已创建，等待上传资料",
-    "MATERIAL_UPLOADED": "资料已上传，等待解析",
+    "MATERIAL_UPLOADED": "资料已上传，等待开始",
     "SOURCE_PARSED": "资料解析完成，正在分析参考风格和产品内容",
     "REFERENCE_STYLE_ANALYZED": "参考风格已分析，正在理解产品内容",
     "PRODUCT_UNDERSTOOD": "产品理解已完成，正在构建证据地图",
@@ -121,18 +137,12 @@ def to_workspace_view(
         ),
         sources=[to_source_view(state.run_id, source) for source in state.source_registry],
         export_artifacts=export_artifacts_for_state(state, data_dir=data_dir),
-        messages=[
-            AgentMessageView(
-                message_id=f"message-{state.run_id}-status",
-                run_id=state.run_id,
-                role="agent",
-                content=f"当前任务状态：{stage}。下一步建议：{next_action_label(state.next_action)}。",
-                created_at=datetime.now(UTC).isoformat(),
-                created_at_label=datetime.now(UTC).strftime("%H:%M"),
-                event_type="system_notice",
-            )
-        ],
-        settings=WorkspaceSettingsView(),
+        messages=workspace_messages_for_state(state, stage),
+        settings=WorkspaceSettingsView(
+            **get_run_settings(state),
+            strategy_change_mode=strategy_change_mode(state),
+        ),
+        confirmation_state=confirmation_state_for_state(state),
         diagnostics=diagnostic_summary,
         available_actions=actions,
         primary_action=primary,
@@ -221,7 +231,7 @@ def display_allowed_usage(source: SourceItem) -> str:
 
 def parse_status_label(source: SourceItem) -> str:
     labels = {
-        "pending": "等待解析",
+        "pending": "等待开始",
         "parsed": "已解析",
         "failed": "解析失败",
         "skipped": "已跳过",
@@ -229,6 +239,229 @@ def parse_status_label(source: SourceItem) -> str:
     if source.source_type == SourceType.SCREENSHOT and source.parse_status.value == "pending":
         return "已保存"
     return labels.get(source.parse_status.value, "已保存")
+
+
+def workspace_messages_for_state(
+    state: DocForgeState,
+    stage: str,
+) -> list[AgentMessageView]:
+    now = datetime.now(UTC)
+    messages = [
+        AgentMessageView(
+            message_id=f"message-{state.run_id}-status",
+            run_id=state.run_id,
+            role="agent",
+            content=f"当前任务状态：{stage}。下一步建议：{next_action_label(state.next_action)}。",
+            created_at=now.isoformat(),
+            created_at_label=now.strftime("%H:%M"),
+            event_type="system_notice",
+        )
+    ]
+    confirmation_message = persisted_confirmation_message(state)
+    if confirmation_message:
+        messages.append(
+            AgentMessageView(
+                message_id=f"message-{state.run_id}-strategy-confirmation",
+                run_id=state.run_id,
+                role="agent",
+                content=confirmation_message,
+                created_at=now.isoformat(),
+                created_at_label=now.strftime("%H:%M"),
+                event_type="doc_plan_confirm",
+            )
+        )
+    guidance = start_guidance_for_state(state)
+    if guidance:
+        messages.append(
+            AgentMessageView(
+                message_id=f"message-{state.run_id}-start-guidance",
+                run_id=state.run_id,
+                role="agent",
+                content=guidance,
+                created_at=now.isoformat(),
+                created_at_label=now.strftime("%H:%M"),
+                event_type="system_notice",
+                card=confirmation_card_for_state(state),
+            )
+        )
+    return messages
+
+
+def start_guidance_for_state(state: DocForgeState) -> str:
+    if state.workflow_status == WorkflowStatus.USER_CONFIRM_REQUIRED:
+        return "资料解析和产品理解已完成。请根据下方确认卡片核对产品类型和文档策略。"
+
+    if state.next_action != NextAction.PARSE_SOURCES:
+        return ""
+
+    references = [
+        source
+        for source in state.source_registry
+        if source.source_type == SourceType.REFERENCE_SOFT_COPYRIGHT_DOC
+    ]
+    screenshots = [
+        source
+        for source in state.source_registry
+        if source.source_type == SourceType.SCREENSHOT
+        or source.allowed_usage == AllowedUsage.DISPLAY_MATERIAL_ONLY
+    ]
+    product_documents = [
+        source
+        for source in state.source_registry
+        if source.is_product_source
+        and source.allowed_usage == AllowedUsage.FACTUAL_EVIDENCE
+        and source.source_type != SourceType.SCREENSHOT
+        and source.file_type
+        in {
+            FileType.DOCX,
+            FileType.PDF,
+            FileType.MD,
+            FileType.TXT,
+            FileType.HTML,
+        }
+    ]
+
+    if product_documents:
+        return (
+            "检测到您已上传自有产品资料。\n\n"
+            "如果希望开始生成《软件著作权文档》，请回复：“开始”。\n\n"
+            "我将先解析资料、构建证据、理解产品内容，并在需要确认时暂停让您确认。"
+        )
+    if references and len(references) == len(state.source_registry):
+        return (
+            "已收到外部参考资料。它只能用于参考目录、章法、配图方式和语言风格，"
+            "不能作为产品事实来源。\n\n要开始生成软著，还需要上传自有产品资料。"
+        )
+    if screenshots:
+        return (
+            "已收到产品截图。截图仅用于配图候选和展示，不做 OCR，也不能作为产品事实证据。\n\n"
+            "要开始生成软著，请继续上传自有产品文档，例如产品介绍、PRD、HLD、详细设计或用户手册。"
+        )
+    return ""
+
+
+def confirmation_card_for_state(state: DocForgeState) -> dict[str, object] | None:
+    if state.workflow_status != WorkflowStatus.USER_CONFIRM_REQUIRED:
+        return None
+    strategy = state.template_strategy
+    diagnosis = state.diagnosis_result
+    if strategy is None:
+        return None
+
+    decision = AutoConfirmationPolicy().evaluate(state)
+    product_type = str(diagnosis.primary_type) if diagnosis is not None else "待确认"
+    template_name = strategy.base_template_name or "推荐文档策略"
+    sections = list(strategy.recommended_chapters)
+    if not sections:
+        sections = ["引言", "软件概述", "核心功能说明"]
+
+    actions = [
+        {
+            "actionId": "action_use_agent_recommendation",
+            "actionType": "use_agent_recommendation",
+            "label": "采用系统推荐并继续",
+            "variant": "primary",
+            "disabled": False,
+            "description": "采用 Agent 根据自有产品资料得出的产品类型并继续。",
+            "payload": {
+                "selected_product_type": product_type,
+                "use_agent_recommendation": True,
+            },
+        }
+    ]
+    if decision.user_selected_product_type and decision.user_selected_product_type != "让 Agent 根据资料判断":
+        actions.append(
+            {
+                "actionId": "action_use_user_selection",
+                "actionType": "use_user_selection",
+                "label": "保留我的选择并继续",
+                "variant": "secondary",
+                "disabled": False,
+                "description": "明确采用右侧当前选择，并继续冻结文档计划。",
+                "payload": {
+                    "selected_product_type": decision.user_selected_product_type,
+                    "use_agent_recommendation": False,
+                },
+            }
+        )
+
+    return {
+        "cardId": f"card-{state.run_id}-doc-plan-confirm",
+        "cardType": "doc_plan_confirm",
+        "title": "需要确认产品类型和文档策略",
+        "summary": f"{decision.reason} 产品类型：{product_type}；文档策略：{template_name}。",
+        "sections": sections,
+        "payload": {
+            "recommendedProductType": decision.recommended_product_type,
+            "userSelectedProductType": decision.user_selected_product_type,
+            "productTypeConflict": decision.product_type_conflict,
+            "recommendedDocType": template_name,
+            "selectedDocType": decision.selected_doc_type,
+            "referenceStyleStrength": decision.selected_reference_style_strength,
+            "reason": decision.reason,
+            "evidenceBoundary": "产品事实只来自自有产品文档；外部参考资料和截图不会作为产品事实证据。",
+        },
+        "actions": actions,
+    }
+
+
+def confirmation_state_for_state(state: DocForgeState) -> ConfirmationStateView | None:
+    if state.workflow_status == WorkflowStatus.USER_CONFIRM_REQUIRED:
+        decision = AutoConfirmationPolicy().evaluate(state)
+        return ConfirmationStateView(
+            required=True,
+            auto_confirmed=False,
+            can_auto_confirm=decision.can_auto_confirm,
+            reason=decision.reason,
+            recommended_product_type=decision.recommended_product_type,
+            user_selected_product_type=decision.user_selected_product_type,
+            product_type_conflict=decision.product_type_conflict,
+            recommended_doc_type=(
+                state.template_strategy.base_template_name if state.template_strategy else ""
+            ),
+            selected_doc_type=decision.selected_doc_type,
+            reference_style_strength=decision.selected_reference_style_strength,
+        )
+
+    result = latest_confirmation_result(state)
+    if not result:
+        return None
+    return ConfirmationStateView(
+        required=False,
+        auto_confirmed=bool(result.get("auto_confirmed")),
+        can_auto_confirm=bool(result.get("can_auto_confirm")),
+        reason=str(result.get("reason", "")),
+        recommended_product_type=str(result.get("recommended_product_type", "")),
+        user_selected_product_type=str(result.get("user_selected_product_type", "")),
+        product_type_conflict=bool(result.get("product_type_conflict")),
+        recommended_doc_type=str(result.get("selected_doc_type", "")),
+        selected_doc_type=str(result.get("selected_doc_type", "")),
+        reference_style_strength=str(result.get("selected_reference_style_strength", "")),
+        message=str(result.get("message", "")),
+    )
+
+
+def persisted_confirmation_message(state: DocForgeState) -> str:
+    result = latest_confirmation_result(state)
+    return str(result.get("message", "")) if result else ""
+
+
+def latest_confirmation_result(state: DocForgeState) -> dict[str, object] | None:
+    for confirmation in reversed(state.human_confirmations):
+        if (
+            confirmation.confirmation_type == ConfirmationType.TEMPLATE_STRATEGY
+            and confirmation.status == ConfirmationStatus.CONFIRMED
+            and not confirmation.metadata.get("invalidated_by_strategy_change")
+        ):
+            raw = confirmation.metadata.get(CONFIRMATION_RESULT_KEY)
+            if isinstance(raw, dict):
+                result = dict(raw)
+                result.setdefault(
+                    "auto_confirmed",
+                    confirmation.metadata.get(CONFIRMATION_SOURCE_KEY) == "auto",
+                )
+                return result
+    return None
 
 
 def available_actions_for_state(state: DocForgeState) -> list[AgentActionView]:
@@ -242,6 +475,17 @@ def available_actions_for_state(state: DocForgeState) -> list[AgentActionView]:
                 primary=True,
                 disabled=False,
                 description="上传参考软著、自有产品资料或产品截图。",
+            )
+        )
+    elif state.next_action == NextAction.ASK_HUMAN_CONFIRMATION:
+        actions.append(
+            AgentActionView(
+                action_id="action_ask_human_confirmation",
+                action_type=state.next_action.value,
+                label="请先确认产品类型和文档策略",
+                primary=True,
+                disabled=True,
+                description="请在确认卡片中选择采用系统推荐或保留你的选择。",
             )
         )
     elif state.next_action != NextAction.STOP:

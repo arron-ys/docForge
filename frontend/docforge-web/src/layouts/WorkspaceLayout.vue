@@ -68,6 +68,7 @@ function findUploadAction(actions: WorkspaceAction[]): WorkspaceAction | undefin
         :primary-action="workspace.primaryAction"
         :upload-action="findUploadAction(workspace.availableActions)"
         :sending="sending"
+        :api-key-configured="apiKeyConfigured"
         @send-message="$emit('send-message', $event)"
         @trigger-action="$emit('trigger-action', $event)"
       />

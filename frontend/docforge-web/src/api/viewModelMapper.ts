@@ -10,9 +10,11 @@ import type {
   SourceUsagePolicyApi,
   WorkspaceApi,
   WorkspaceSettingsApi,
+  ConfirmationStateApi,
 } from "@/api/apiTypes";
 import type {
   AgentActionType,
+  AgentCard,
   AgentMessage,
   DiagnosticSummary,
   ExportArtifact,
@@ -27,6 +29,7 @@ import type {
   WorkspaceAction,
   WorkspaceLastError,
   WorkspaceSettings,
+  ConfirmationState,
   WorkspaceState,
   AllowedUsage,
   CorpusType,
@@ -41,6 +44,9 @@ export function mapWorkspace(payload: WorkspaceApi): WorkspaceState {
     exportArtifacts: payload.export_artifacts.map(mapExportArtifact),
     messages: payload.messages.map(mapAgentMessage),
     settings: mapWorkspaceSettings(payload.settings),
+    confirmationState: payload.confirmation_state
+      ? mapConfirmationState(payload.confirmation_state)
+      : undefined,
     diagnostics: mapDiagnosticSummary(payload.diagnostics),
     availableActions: payload.available_actions.map(mapWorkspaceAction),
     primaryAction: payload.primary_action ? mapWorkspaceAction(payload.primary_action) : undefined,
@@ -119,6 +125,7 @@ function mapWorkspaceAction(payload: AgentActionApi): WorkspaceAction {
     primary: payload.primary,
     disabled: payload.disabled,
     description: payload.description ?? undefined,
+    payload: payload.payload,
   };
 }
 
@@ -127,6 +134,23 @@ function mapWorkspaceSettings(payload: WorkspaceSettingsApi): WorkspaceSettings 
     productTypeHint: payload.product_type_hint as ProductTypeOption,
     docOutputType: payload.doc_output_type as DocOutputType,
     referenceStyleStrength: payload.reference_style_strength as ReferenceStyleStrength,
+    strategyChangeMode: payload.strategy_change_mode,
+  };
+}
+
+function mapConfirmationState(payload: ConfirmationStateApi): ConfirmationState {
+  return {
+    required: payload.required,
+    autoConfirmed: payload.auto_confirmed,
+    canAutoConfirm: payload.can_auto_confirm,
+    reason: payload.reason,
+    recommendedProductType: payload.recommended_product_type,
+    userSelectedProductType: payload.user_selected_product_type,
+    productTypeConflict: payload.product_type_conflict,
+    recommendedDocType: payload.recommended_doc_type,
+    selectedDocType: payload.selected_doc_type,
+    referenceStyleStrength: payload.reference_style_strength,
+    message: payload.message,
   };
 }
 
@@ -149,6 +173,7 @@ function mapAgentMessage(payload: AgentMessageApi): AgentMessage {
     eventId: payload.event_id ?? undefined,
     eventType: payload.event_type as RunEventType | undefined,
     isUserVisible: payload.is_user_visible,
+    card: payload.card ? (payload.card as unknown as AgentCard) : undefined,
   };
 }
 

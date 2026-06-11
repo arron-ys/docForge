@@ -38,12 +38,20 @@ httpClient.interceptors.response.use(
       return Promise.reject(new DocForgeApiError(payload, error.response?.status));
     }
 
-    const fallback: ApiErrorResponse = {
-      error_code: "network_error",
-      message: "无法连接 DocForge API，请确认 FastAPI 服务已启动。",
-      recoverable: true,
-      suggested_action: "启动 python -m uvicorn api.main:app --reload 后重试。",
-    };
+    const timedOut = error.code === "ECONNABORTED" || error.message.toLowerCase().includes("timeout");
+    const fallback: ApiErrorResponse = timedOut
+      ? {
+          error_code: "request_timeout",
+          message: "后端仍在处理当前任务，请稍后刷新工作台查看最新状态。",
+          recoverable: true,
+          suggested_action: "如果状态已推进，可以继续执行下一步；如果长时间没有变化，再检查模型服务连接。",
+        }
+      : {
+          error_code: "network_error",
+          message: "无法连接 DocForge API，请确认 FastAPI 服务已启动。",
+          recoverable: true,
+          suggested_action: "确认 http://127.0.0.1:8000/healthz 可访问后重试。",
+        };
     return Promise.reject(new DocForgeApiError(fallback, error.response?.status));
   },
 );

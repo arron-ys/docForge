@@ -18,7 +18,7 @@ docforge_core 核心业务模块
 本地文件系统 / Qdrant Local / 外部 LLM API
 ```
 
-Streamlit 入口 `app/main.py` 仍保留，但只作为开发调试入口 / 旧 Demo 入口。
+`app/main.py` 仍保留，但只作为仓库级 Python 启动入口，不承载 Streamlit UI。
 
 该决策避免继续沿用旧版单入口说明。v0.1 本地试用需要同时启动 FastAPI 和 Vue 前端；Qdrant 使用 Local Persistent Mode，不需要独立 Qdrant Server。
 

@@ -8,7 +8,7 @@
 - FastAPI API 适配层已完成。
 - Vue 工作台已接入真实 FastAPI，同时保留 mock 模式。
 - Sprint 4 UX 验收已通过。
-- Streamlit 保留为开发调试入口 / 旧 Demo 入口。
+- `app/main.py` 保留为仓库级 Python 启动入口；Streamlit 已从当前入口移除。
 
 当前架构：
 
@@ -36,7 +36,7 @@ docforge_core 核心业务模块
 - 参考软著、自有产品资料、产品截图落盘。
 - `SourceItem` 注册和 source id 索引。
 - 区分 source_type、file_type、corpus_type 和 allowed_usage。
-- Streamlit 当时用于开发验证上传链路，v0.1 正式上传链路已由 Vue 工作台通过 FastAPI 承担。
+- 早期 Streamlit 曾用于开发验证上传链路，v0.1 正式上传链路已由 Vue 工作台通过 FastAPI 承担。
 
 ## 历史 Sprint3: 文档解析与 ParsedAsset
 
@@ -187,7 +187,7 @@ Sprint6 的关键纠偏：废弃关键词主导能力判断，改为 Evidence-gr
 - 不做截图 OCR。
 - 不做网页 URL 采集。
 - 不接代码仓库。
-- Streamlit 仍保留为调试入口。
+- `app/main.py` 仍保留为 Python 启动入口。
 
 ## Phase 2 候选方向
 

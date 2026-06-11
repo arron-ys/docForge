@@ -1,1 +1,1 @@
-"""Streamlit application package."""
+"""DocForge application entry package."""

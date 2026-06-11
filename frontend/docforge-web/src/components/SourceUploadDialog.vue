@@ -19,8 +19,8 @@ const emit = defineEmits<{
 
 type UploadCategory = "reference" | "product";
 
-const REFERENCE_ACCEPT = ".doc,.docx,.pdf,.md,.txt,.html";
-const PRODUCT_ACCEPT = ".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,.md,.txt,.html,.png,.jpg,.jpeg,.webp";
+const REFERENCE_ACCEPT = ".docx,.pdf,.md,.txt,.html";
+const PRODUCT_ACCEPT = ".docx,.pdf,.md,.txt,.html,.png,.jpg,.jpeg,.webp";
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 const UPLOAD_TYPE_META: Record<
   UploadCategory,
@@ -38,7 +38,7 @@ const UPLOAD_TYPE_META: Record<
     title: "上传外部参考资料",
     description: "用于目录结构、章法、配图方式和语言风格参考，不作为产品事实来源。",
     alertType: "warning",
-    fileHint: "支持 doc、docx、pdf、md、txt、html",
+    fileHint: "支持 docx、pdf、md、txt、html",
     accept: REFERENCE_ACCEPT,
     boundary: "仅参考目录、章法、配图方式和语言风格，不能作为产品事实来源。",
     tip: "请上传外部参考软著或相似文档。系统会隔离为风格参考，不进入产品事实依据。",
@@ -47,9 +47,10 @@ const UPLOAD_TYPE_META: Record<
     title: "上传自有产品资料",
     description: "支持产品文档和产品截图。文档可作为产品事实依据；图片仅作为配图候选和展示。",
     alertType: "success",
-    fileHint: "支持 doc、docx、xls、xlsx、ppt、pptx、pdf、md、txt、html、png、jpg、jpeg、webp",
+    fileHint: "支持 docx、pdf、md、txt、html、png、jpg、jpeg、webp",
     accept: PRODUCT_ACCEPT,
-    boundary: "文档类资料可作为产品事实依据；图片仅作为配图候选和展示，不做 OCR，不作为产品事实证据。",
+    boundary:
+      "文档类资料可作为产品事实依据；图片仅作为配图候选和展示，不做 OCR，不做截图绑定，不作为产品事实证据。",
     tip: "请上传我方产品文档或产品截图。系统会根据文件格式在自有产品资料中区分产品文档和产品截图。",
   },
 };

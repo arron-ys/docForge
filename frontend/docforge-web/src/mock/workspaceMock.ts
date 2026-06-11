@@ -36,6 +36,7 @@ const primaryAction: WorkspaceAction = {
   description: "解析资料并识别参考资料、自有产品文档和产品截图的用途边界。",
 };
 
+// Default mock data intentionally mirrors actions that are wired in the v0.1 backend.
 export const workspaceMock: WorkspaceState = {
   runSummary: {
     runId: RUN_ID,
@@ -211,70 +212,48 @@ export const workspaceMock: WorkspaceState = {
     },
     {
       ...createAgentTextMessage(
-        "根据当前资料，我建议先确认产品边界，避免把参考文档能力误写成 DataTalk 的能力。",
-        {
-          messageId: "message-product-type-card",
-          createdAt: "2026-06-09T09:32:00+08:00",
-          eventType: "product_type_decision",
-        },
-      ),
-      card: {
-        cardId: "card-product-type",
-        cardType: "product_type_decision",
-        title: "产品类型判断",
-        summary: "用户选择与 Agent 判断存在差异，需要二次确认。",
-        userChoice: "AI 平台",
-        agentJudgement: "AI 数据平台",
-        recommendedType: "AI 数据平台",
-        differenceReasons: [
-          "资料中包含数据接入、治理、数据集管理",
-          "资料中包含 AI 生成、智能分析能力",
-          "AI 能力是核心能力之一，但不是唯一产品边界",
-        ],
-        actions: [
-          cardAction(
-            "action_use_agent_recommendation",
-            "use_agent_recommendation",
-            "按 Agent 推荐继续",
-            "primary",
-          ),
-          cardAction("action_use_user_selection", "use_user_selection", "使用我的选择", "secondary"),
-          cardAction(
-            "action_view_difference_reason",
-            "view_difference_reason",
-            "查看差异原因",
-            "secondary",
-          ),
-        ],
-      },
-    },
-    {
-      ...createAgentTextMessage(
-        "软著文档目录已生成。确认后我会按该目录生成正文，不会擅自新增未被证据支持的产品能力。",
+        "根据当前资料，我已经生成推荐的产品类型和文档目录。确认后会冻结计划，并继续后续写作流程。",
         {
           messageId: "message-doc-plan-card",
-          createdAt: "2026-06-09T09:34:00+08:00",
+          createdAt: "2026-06-09T09:32:00+08:00",
           eventType: "doc_plan_confirm",
         },
       ),
       card: {
         cardId: "card-doc-plan",
         cardType: "doc_plan_confirm",
-        title: "软著文档目录已生成",
-        summary: "确认后进入正文生成前的计划质量检查。",
+        title: "请确认产品类型和文档计划",
+        summary: "v0.1 默认只提供采用推荐或保留当前选择两种真实确认动作。",
+        payload: {
+          recommendedProductType: "AI 数据平台",
+          userSelectedProductType: "AI 平台",
+          recommendedDocType: "产品功能说明书",
+          selectedDocType: "产品功能说明书",
+          referenceStyleStrength: "medium",
+          evidenceBoundary:
+            "外部参考资料仅用于写法和目录风格；产品截图仅作为展示材料，不做 OCR，不做截图绑定，不作为产品事实证据。",
+        },
         sections: [
           "系统概述",
           "功能结构",
-          "用户登录与权限管理",
           "数据接入管理",
           "数据集治理",
           "智能分析与生成",
           "系统配置与运维",
         ],
         actions: [
-          cardAction("action_confirm_doc_plan", "confirm_doc_plan", "确认目录并生成正文", "primary"),
-          cardAction("action_adjust_doc_plan", "adjust_doc_plan", "调整目录", "secondary"),
-          cardAction("action_regenerate_doc_plan", "regenerate_doc_plan", "重新生成", "secondary"),
+          cardAction(
+            "action_use_agent_recommendation_doc_plan",
+            "use_agent_recommendation",
+            "采用 Agent 推荐",
+            "primary",
+          ),
+          cardAction(
+            "action_use_user_selection_doc_plan",
+            "use_user_selection",
+            "保留我的当前选择",
+            "secondary",
+          ),
         ],
       },
     },
@@ -296,11 +275,7 @@ export const workspaceMock: WorkspaceState = {
           suggestion: 3,
           conclusion: "当前不建议导出正常版 DOCX，建议导出风险版。",
         },
-        actions: [
-          cardAction("action_view_risk_detail", "view_risk_detail", "查看风险详情", "primary"),
-          cardAction("action_export_risk_docx", "export_risk_docx", "导出风险版 DOCX", "secondary"),
-          cardAction("action_return_to_revision", "return_to_revision", "返回修订", "secondary"),
-        ],
+        actions: [cardAction("action_export_risk_docx", "export-risk-docx", "导出风险版 DOCX", "primary")],
       },
     },
     {
@@ -315,15 +290,7 @@ export const workspaceMock: WorkspaceState = {
         title: "文档已准备好",
         artifactName: "风险版 DOCX",
         description: "风险版 DOCX 已生成，可下载。",
-        actions: [
-          cardAction("action_download_risk_docx", "download_risk_docx", "下载风险版 DOCX", "primary"),
-          cardAction(
-            "action_view_generation_record",
-            "view_generation_record",
-            "查看生成记录",
-            "secondary",
-          ),
-        ],
+        actions: [],
       },
     },
   ],

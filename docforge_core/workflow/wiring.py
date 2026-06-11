@@ -77,7 +77,7 @@ class LazyRevisionLoopService(LazyWorkflowService):
 
 
 def build_workflow_service_registry(state_store: StateStore) -> WorkflowServiceRegistry:
-    """Build the complete service registry used by Streamlit and FastAPI."""
+    """Build the complete service registry used by local runtime entrypoints."""
     return WorkflowServiceRegistry(
         source_parsing_service=SourceParsingService(data_dir=state_store.data_dir),
         evidence_service=EvidenceExtractorService(data_dir=state_store.data_dir),

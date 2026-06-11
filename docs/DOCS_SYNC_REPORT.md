@@ -55,7 +55,7 @@
 - 当前版本统一为墨衡 DocForge v0.1。
 - Vue3 三栏式 Agent 工作台统一为正式产品入口。
 - FastAPI 统一为正式 API 层，入口为 `api/main.py`。
-- Streamlit 统一为开发调试入口 / 旧 Demo 入口。
+- `app/main.py` 统一为仓库级 Python 启动入口，Streamlit 已从当前入口移除。
 - 本地启动方式统一为同时启动 FastAPI 和 Vue 前端。
 - 技术栈补齐 Node.js、pnpm、Vue 3、Vite、TypeScript、Element Plus、Pinia、Vue Router、Axios、FastAPI。
 - 证据边界统一为 reference style、product evidence、screenshot display material 三类。

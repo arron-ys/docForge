@@ -2,7 +2,7 @@
 
 墨衡 DocForge 是一个面向软件著作权文档生成的多智能体文档生产系统。当前版本为 **v0.1**，正式产品入口是 **Vue3 三栏式 Agent 工作台**，路径为 `frontend/docforge-web`。
 
-Streamlit 入口仍然保留，但只作为开发调试入口 / 旧 Demo 入口，不再是 v0.1 正式产品入口。
+`app/main.py` 保留为 Python 启动入口，但不再承载 Streamlit UI。当前正式产品入口是 Vue 工作台 + FastAPI + `docforge_core`。
 
 ## 当前 v0.1 架构
 
@@ -23,7 +23,7 @@ docforge_core 核心业务模块
 - Vue 工作台负责资料上下文展示、Agent 对话区、运行设置、上传资料、触发结构化 action、展示诊断状态、下载 DOCX、展示错误和下一步建议。
 - FastAPI 负责 WorkspaceView API、Source Upload API、Run Action API、Diagnostics API、Artifact Download API、用户可读状态映射、action 状态校验，并防止前端绕过 workflow。
 - `docforge_core` 负责 workflow 状态机、Agent / Service、Evidence、FrozenDocPlan、QualityGate、DOCX 导出、Qdrant 检索和状态持久化。
-- Streamlit 负责开发调试和旧 Demo 验证，不作为正式入口。
+- `app/main.py` 负责仓库级 Python 启动转发；实际开发联调通过 `scripts/dev.sh` 启动 FastAPI 和 Vue，不存在 Streamlit 入口。
 
 ## 启动方式
 
@@ -103,10 +103,10 @@ pnpm dev
 http://127.0.0.1:5173/
 ```
 
-可选启动 Streamlit 调试入口：
+可选通过 Python 入口启动当前开发链路：
 
 ```bash
-streamlit run app/main.py
+.venv/bin/python app/main.py
 ```
 
 ## 本地试用
@@ -174,9 +174,9 @@ POST /api/runs/{run_id}/actions/start
 
 该指令不会作为产品事实证据。底层仍经过 workflow 状态校验和 action guard；底部主操作按钮仅作为备用入口。
 
-FastAPI 与 Streamlit 入口复用统一 workflow 服务装配，不再各自维护一套 `WorkflowServiceRegistry`。正式 FastAPI 入口会注入资料解析、Evidence 抽取、产品理解、人工确认、写作、审计和 DOCX 导出服务。
+FastAPI 入口通过统一 workflow 服务装配注入资料解析、Evidence 抽取、产品理解、人工确认、写作、审计和 DOCX 导出服务。
 
-资料边界保持不变：外部参考资料只用于目录、章法、配图方式和语言风格；产品截图仅作为配图候选和展示材料，不做 OCR，也不能作为产品事实证据。
+资料边界保持不变：外部参考资料只用于目录、章法、配图方式和语言风格；产品截图仅作为配图候选和展示材料，不做 OCR、不做截图绑定，也不能作为产品事实证据。
 - `VITE_DOCFORGE_USE_MOCK=true`：使用前端内置 mock 数据，只用于检查界面，不代表真实生成结果。
 
 ## 技术栈
@@ -198,7 +198,7 @@ FastAPI 与 Streamlit 入口复用统一 workflow 服务装配，不再各自维
 
 - Python
 - FastAPI
-- LangGraph
+- LangGraph scaffold（保留为未来 observability / tracing / workflow visualization 预留能力，当前不作为主流程执行入口）
 - Pydantic
 - python-docx
 - Qdrant Local Persistent Mode
@@ -238,6 +238,7 @@ Embedding：
 
 - `corpus_type = reference_style`
 - `allowed_usage = style_only`
+- 当前支持上传格式：`.docx`、`.pdf`、`.md`、`.txt`、`.html`
 - 只能用于目录结构、章节写法、语言风格、配图方式和软著常见表达。
 - 不能用于产品事实、产品功能、技术架构事实、对方产品名称或对方业务描述。
 
@@ -245,6 +246,7 @@ Embedding：
 
 - `corpus_type = product_evidence`
 - `allowed_usage = factual_evidence`
+- 当前支持上传格式：`.docx`、`.pdf`、`.md`、`.txt`、`.html`
 - 可作为产品事实来源，包括产品介绍、PRD、HLD、详细设计、用户确认信息和其他自有产品文档。
 
 产品截图：
@@ -252,8 +254,9 @@ Embedding：
 - `corpus_type = product_evidence`
 - `allowed_usage = display_material_only`
 - `evidence_strength = not_allowed_as_fact`
+- 当前支持上传格式：`.png`、`.jpg`、`.jpeg`、`.webp`
 - 当前 v0.1 仅作为展示材料登记和配图候选。
-- 不做 OCR，不做视觉模型解析，不作为强产品事实证据，不用于推断当前版本已实现功能，不进入 WriterAgent 的事实引用链。
+- 不做 OCR，不做视觉模型解析，不做截图绑定，不作为强产品事实证据，不用于推断当前版本已实现功能，不进入 WriterAgent 的事实引用链。
 
 ## Agent / Workflow 口径
 
@@ -274,7 +277,7 @@ Embedding：
 13. AuditAgent
 14. ExportAgent
 
-截图相关职责已收敛为资料登记、配图占位和补图建议：`FigureSlotPlannerService` 是非 Agent 的配图占位 / 补图建议服务，不做 OCR、不做真实截图绑定、不做截图事实推断。
+截图相关职责已收敛为资料登记、配图占位和补图建议：`FigureSlotPlannerService` 是非 Agent 的配图占位 / 补图建议服务，不做 OCR、不做截图绑定、不做截图事实推断。
 
 WF-02：软著文档生成工作流 v2.1：
 
@@ -356,9 +359,10 @@ data/runs/{run_id}/exports/
 - 不导出 PDF。
 - 不导出独立审计报告。
 - 不做截图 OCR。
+- 不做截图绑定。
 - 不做网页 URL 采集。
 - 不接代码仓库。
-- Streamlit 仍保留为调试入口。
+- `app/main.py` 仍保留为仓库级 Python 启动入口。
 
 ## 运行测试
 

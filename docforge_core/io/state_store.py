@@ -2,7 +2,8 @@
 StateStore — state.json 读写管理。
 
 MVP 阶段主状态源为 data/runs/{run_id}/state.json。
-LangGraph 负责调度，state.json 负责业务状态持久化，Qdrant 负责证据语义检索。
+当前 v0.1 主流程由 WorkflowOrchestratorService 调度；LangGraph scaffold 仅保留为未来 observability /
+tracing 预留能力。state.json 负责业务状态持久化，Qdrant 负责证据语义检索。
 
 序列化规则：
 - UTF-8 编码

@@ -188,18 +188,6 @@ export const useWorkspaceStore = defineStore("workspace", {
         return;
       }
 
-      if (isDownloadAction(action)) {
-        const artifact = findDownloadArtifact(this.workspace.exportArtifacts, action.actionType);
-        if (!artifact) {
-          this.recordError(
-            new Error("当前没有可下载的导出文件。请先完成文档生成和导出。"),
-          );
-          return;
-        }
-        await this.downloadArtifact(artifact);
-        return;
-      }
-
       if (action.actionType === "refresh_diagnostics") {
         await this.refreshWorkspace();
         this.appendSystemMessage("诊断信息已刷新。");
@@ -580,20 +568,6 @@ function isStartFlowAction(action: AgentCardAction | WorkspaceAction): boolean {
 
 function isStartCommand(content: string): boolean {
   return ["开始", "开始写作", "开始生成", "继续"].includes(content.trim());
-}
-
-function isDownloadAction(action: AgentCardAction | WorkspaceAction): boolean {
-  return action.actionType === "download_risk_docx";
-}
-
-function findDownloadArtifact(
-  artifacts: ExportArtifact[],
-  actionType: string,
-): ExportArtifact | null {
-  if (actionType === "download_risk_docx") {
-    return artifacts.find((artifact) => artifact.type === "risk_docx" && artifact.downloadable) ?? null;
-  }
-  return artifacts.find((artifact) => artifact.downloadable) ?? null;
 }
 
 function mergeWorkspaceMessages(

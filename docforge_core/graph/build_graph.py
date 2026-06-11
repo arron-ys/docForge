@@ -1,1 +1,1 @@
-"""Graph builder placeholder. Not implemented in Sprint 1A."""
+"""LangGraph builder scaffold for future observability and tracing experiments."""

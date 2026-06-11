@@ -2,7 +2,7 @@
 
 本文档用于 DocForge v0.1 本地开发验收。正式产品入口是 Vue3 三栏式 Agent 工作台。
 
-Streamlit 仅为开发调试入口 / 旧 Demo 入口。
+`app/main.py` 仅保留为 Python 启动入口，不是独立产品 UI。
 
 ## 启动服务
 
@@ -38,20 +38,18 @@ http://127.0.0.1:5173/
 http://127.0.0.1:5173/?run_id=<真实任务编号>
 ```
 
-可选启动 Streamlit 调试入口：
+可选通过 Python 入口启动当前开发链路：
 
 ```bash
-streamlit run app/main.py
+.venv/bin/python app/main.py
 ```
 
 ## 样例工程闭环
 
 1. 启动 FastAPI。
 2. 启动 Vue 前端。
-3. 可选启动 Streamlit 调试入口。
-4. 在 Streamlit 调试入口创建新任务。
-5. 展开“样例工程”，点击“加载本地样例工程”。
-6. 获得 `run_id`。
+3. 运行 `./scripts/import_sample_project.py`。
+4. 读取输出中的 `run_id`。
 7. 打开 Vue 工作台：`http://127.0.0.1:5173/?run_id=<run_id>`。
 8. 查看左侧资料、中央 Agent 消息和右侧运行设置 / 诊断。
 9. 触发当前主操作。
@@ -94,4 +92,4 @@ git diff --check
 - `revision_trace_v*.json`
 - `export_manifest.json`
 
-v0.1 不做截图 OCR、视觉模型解析、PDF 导出或 Markdown 导出。
+v0.1 不做截图 OCR、截图绑定、视觉模型解析、PDF 导出或 Markdown 导出。

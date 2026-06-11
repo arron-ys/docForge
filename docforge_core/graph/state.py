@@ -1,1 +1,1 @@
-"""Graph state placeholder. Not implemented in Sprint 1A."""
+"""LangGraph state scaffold for future observability and tracing experiments."""

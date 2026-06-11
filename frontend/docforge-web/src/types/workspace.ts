@@ -86,7 +86,7 @@ export interface RunListItem {
   updatedAt: string;
 }
 
-export type AgentActionType =
+export type BackendActionType =
   | "open_upload"
   | "start"
   | "parse_sources"
@@ -116,19 +116,14 @@ export type AgentActionType =
   | "refresh_diagnostics"
   | "start_parse_sources"
   | "use_agent_recommendation"
-  | "use_user_selection"
-  | "view_difference_reason"
-  | "confirm_doc_plan"
-  | "adjust_doc_plan"
-  | "regenerate_doc_plan"
-  | "view_risk_detail"
-  | "export_risk_docx"
-  | "return_to_revision"
-  | "download_risk_docx"
-  | "view_generation_record"
+  | "use_user_selection";
+
+export type MockOnlyActionType =
   | "open_upload_mock"
   | "export_entry_mock"
   | "update_setting_mock";
+
+export type AgentActionType = BackendActionType | MockOnlyActionType;
 
 export interface AgentCardAction {
   actionId: string;

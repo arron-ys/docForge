@@ -47,7 +47,7 @@ class WorkflowIssue:
 
 @dataclass(frozen=True, slots=True)
 class WorkflowHealthReport:
-    """Read-only status report suitable for Streamlit."""
+    """Read-only status report suitable for product and developer tooling."""
 
     run_id: str
     workflow_status: str

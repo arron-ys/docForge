@@ -10,9 +10,9 @@
 - FastAPI API 适配层已经完成。
 - Vue 工作台已经接入真实 FastAPI，同时保留 mock 模式。
 - 用户上传自有产品资料后，可在 Agent 对话区回复“开始”启动主流程；进入后续阶段后可回复“继续”。这些文本只作为结构化 action 指令，不进入产品事实证据链。
-- FastAPI 与 Streamlit 入口复用统一 workflow 服务装配，FastAPI 正式入口不再创建空 orchestrator。
+- FastAPI 正式入口使用统一 workflow 服务装配，不再创建空 orchestrator。
 - Sprint 4 UX 验收已经通过。
-- Streamlit 入口仍然保留，但定位为开发调试入口 / 旧 Demo 入口。
+- `app/main.py` 仍然保留，但定位为项目 Python 启动入口，不承载 Streamlit UI。
 - 最终用户产物为普通版 DOCX 或风险版 DOCX。
 
 ## 当前入口
@@ -29,7 +29,7 @@ API 入口：
 api/main.py
 ```
 
-开发调试入口：
+Python 启动入口：
 
 ```text
 app/main.py
@@ -49,10 +49,10 @@ pnpm install
 pnpm dev
 ```
 
-可选启动 Streamlit 调试入口：
+可选通过 Python 入口启动当前开发链路：
 
 ```bash
-streamlit run app/main.py
+.venv/bin/python app/main.py
 ```
 
 ## 当前 v0.1 架构
@@ -74,7 +74,7 @@ docforge_core 核心业务模块
 - Vue 工作台负责资料上下文展示、Agent 对话区、右侧运行设置、上传资料、触发结构化 action、展示诊断状态、下载 DOCX、展示错误和下一步建议。
 - FastAPI 负责 WorkspaceView API、Source Upload API、Run Action API、Diagnostics API、Artifact Download API、用户可读状态映射、action 状态校验，并防止前端绕过 workflow。
 - `docforge_core` 负责 workflow 状态机、Agent / Service、Evidence、FrozenDocPlan、QualityGate、DOCX 导出、Qdrant 检索和状态持久化。
-- Streamlit 只负责开发调试和旧 Demo 验证。
+- `app/main.py` 只负责启动转发与入口保留，不替代 Vue/FastAPI 主链路。
 
 当前主流程启动口径：
 
@@ -127,7 +127,7 @@ README 和 docs 是说明材料，不是状态机事实源。
 - `PlanQualityGate` 判断是否需要用户补充截图或文字替代说明。
 - `ExportAgent` 按结构化章节内容和截图策略处理可用图片或占位说明。
 
-`FigureSlotPlannerService` 是非 Agent 的配图占位 / 补图建议服务，不做 OCR、不做真实截图绑定、不做截图事实推断。
+`FigureSlotPlannerService` 是非 Agent 的配图占位 / 补图建议服务，不做 OCR、不做截图绑定、不做截图事实推断。
 
 ## Workflow 口径
 
@@ -192,7 +192,7 @@ OrchestratorAgent 启动任务
 - `allowed_usage = display_material_only`
 - `evidence_strength = not_allowed_as_fact`
 - 仅作为展示材料登记和配图候选。
-- 不做 OCR，不做视觉模型解析，不作为强产品事实证据，不用于推断当前版本已实现功能，不进入 WriterAgent 的事实引用链。
+- 不做 OCR，不做视觉模型解析，不做截图绑定，不作为强产品事实证据，不用于推断当前版本已实现功能，不进入 WriterAgent 的事实引用链。
 
 ## 已完成的主要能力
 
@@ -218,6 +218,7 @@ OrchestratorAgent 启动任务
 - WorkflowDiagnosticsService 只读健康诊断。
 - UserFacingErrorMapper 用户友好错误映射。
 - DocxAcceptanceChecker 交付 DOCX 验收。
+- LangGraph scaffold 仅保留为未来 observability / tracing / workflow visualization 预留能力，当前不作为主编排入口。
 
 ## 当前未完成能力
 
@@ -229,9 +230,10 @@ OrchestratorAgent 启动任务
 - 不导出 PDF。
 - 不导出独立审计报告。
 - 不做截图 OCR。
+- 不做截图绑定。
 - 不做网页 URL 采集。
 - 不接代码仓库。
-- Streamlit 仍保留为调试入口。
+- `app/main.py` 仍保留为 Python 启动入口。
 
 ## 重要 artifact
 

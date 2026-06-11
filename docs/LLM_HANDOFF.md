@@ -11,7 +11,7 @@
 5. 再看 `docforge_core/workflow/orchestrator.py`。
 6. 再看 `docforge_core/workflow/diagnostics.py` 和 `docforge_core/workflow/user_facing_errors.py`。
 7. 再看 `docforge_core/exporters/docx_acceptance.py`。
-8. 最后看 `app/main.py`，它是 Streamlit 开发调试入口 / 旧 Demo 入口。
+8. 最后看 `app/main.py`，它是仓库级 Python 启动入口，不再承载 Streamlit UI。
 
 如果文档与代码冲突，以代码和测试为准。
 
@@ -19,7 +19,7 @@
 
 当前版本为 **墨衡 DocForge v0.1**。正式产品入口是 Vue3 三栏式 Agent 工作台，FastAPI 作为 API 层，`docforge_core` 作为核心业务模块。
 
-Streamlit 只作为开发调试入口。
+`app/main.py` 只作为 Python 启动入口，不替代 Vue/FastAPI 主链路。
 
 ```text
 用户浏览器
@@ -38,7 +38,7 @@ docforge_core 核心业务模块
 - Vue 工作台负责资料上下文展示、Agent 对话区、右侧运行设置、上传资料、触发结构化 action、展示诊断状态、下载 DOCX、展示错误和下一步建议。
 - FastAPI 负责 WorkspaceView API、Source Upload API、Run Action API、Diagnostics API、Artifact Download API、用户可读状态映射和 action 状态校验。
 - `docforge_core` 负责 workflow 状态机、Agent / Service、Evidence、FrozenDocPlan、QualityGate、DOCX 导出、Qdrant 检索和状态持久化。
-- Streamlit 负责开发调试和旧 Demo 验证。
+- `app/main.py` 负责启动转发与入口保留；开发联调默认走 `scripts/dev.sh`。
 
 `WorkflowOrchestratorService` 是薄编排层，只调度已有 service / agent，并做 guard、rollback 和 stale artifact 检查。不要把业务生成逻辑塞进 Orchestrator。
 
@@ -61,7 +61,7 @@ docforge_core 核心业务模块
 13. AuditAgent
 14. ExportAgent
 
-截图相关职责已收敛到资料登记、质量门禁补图建议和导出占位处理。`FigureSlotPlannerService` 是非 Agent 的配图占位 / 补图建议服务，不做 OCR、不做真实截图绑定、不做截图事实推断。
+截图相关职责已收敛到资料登记、质量门禁补图建议和导出占位处理。`FigureSlotPlannerService` 是非 Agent 的配图占位 / 补图建议服务，不做 OCR、不做截图绑定、不做截图事实推断。
 
 ## Workflow 口径
 
@@ -117,7 +117,8 @@ OrchestratorAgent 启动任务
 - MVP 视觉模型解析。
 - MVP 真实图片插入 DOCX。
 - 将截图作为产品事实证据。
-- 通过 Streamlit 暴露内部 artifact。
+- 通过已移除的旧 UI 入口暴露内部 artifact。
+- 把 LangGraph placeholder 误当成当前 v0.1 主 workflow 编排入口。
 
 这些路线已经被架构纠偏废弃。
 
@@ -161,6 +162,7 @@ LLM 可以做语义理解，但系统必须约束证据：
 - 仅作为展示材料登记和配图候选。
 - 不做 OCR。
 - 不做视觉模型解析。
+- 不做截图绑定。
 - 不作为强产品事实证据。
 - 不用于推断当前版本已实现功能。
 - 不进入 WriterAgent 的事实引用链。
@@ -189,6 +191,7 @@ LLM 可以做语义理解，但系统必须约束证据：
 - Diagnostics 发现问题后的 fail closed 引导。
 - DOCX acceptance 覆盖。
 - 内部 artifact 不可下载的回归检查。
+- LangGraph observability / tracing scaffold。
 
 不要做：
 

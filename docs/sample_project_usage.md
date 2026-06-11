@@ -21,20 +21,16 @@
 
 v0.1 正式产品入口是 Vue3 三栏式 Agent 工作台。
 
-样例工程可以先通过 Streamlit 调试入口创建或导入任务，获得 `run_id` 后再回到 Vue 工作台体验。
+样例工程可以先通过非 UI 脚本导入，获得 `run_id` 后再回到 Vue 工作台体验。
 
 推荐步骤：
 
 1. 启动 FastAPI：`.venv/bin/python -m uvicorn api.main:app --reload`。
 2. 启动 Vue 前端：`cd frontend/docforge-web && pnpm dev`。
-3. 可选启动 Streamlit 调试入口：`streamlit run app/main.py`。
-4. 在 Streamlit 调试入口中创建新任务。
-5. 展开“样例工程”，点击“加载本地样例工程”。
-6. 获得 `run_id`。
+3. 运行 `./scripts/import_sample_project.py`。
+4. 读取输出中的 `run_id`。
 7. 打开 Vue 工作台：`http://127.0.0.1:5173/?run_id=<run_id>`。
 8. 在 Vue 工作台查看资料上下文、Agent 消息、右侧诊断和导出结果。
-
-Streamlit 是调试入口，不是 v0.1 正式产品入口。
 
 ## 样例导入幂等性
 
@@ -49,7 +45,7 @@ Streamlit 是调试入口，不是 v0.1 正式产品入口。
 
 原因：当前 `SourceFileRegistry` 会生成新的 source_id 和唯一落盘文件名，自动补齐可能污染状态。
 
-遇到异常时，Streamlit 调试入口会显示用户友好错误；开发细节在默认折叠的“开发调试信息”中。
+遇到异常时，样例导入脚本会直接输出错误；开发细节应结合终端输出和测试结果排查。
 
 ## 截图边界
 
@@ -58,7 +54,7 @@ Streamlit 是调试入口，不是 v0.1 正式产品入口。
 - 不读取图片内容。
 - 不做 OCR。
 - 不做视觉模型解析。
-- 不自动绑定真实截图。
+- 不做截图绑定。
 - 不把截图作为产品事实证据。
 - 不用截图推断当前版本已实现功能。
 

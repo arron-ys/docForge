@@ -2,7 +2,7 @@
 
 墨衡 DocForge Web 是 v0.1 的正式产品入口：Vue3 三栏式 Agent 工作台。它通过 HTTP / REST 调用 FastAPI，不直接调用 Agent，不直接读取后端内部状态文件，也不直接改写后端任务状态。
 
-Streamlit 入口仍然保留，但只作为开发调试入口 / 旧 Demo 入口。
+`app/main.py` 仍然保留，但只作为仓库级 Python 启动入口，不承载 Streamlit UI，也不替代 Vue/FastAPI 工作台。
 
 ## 技术栈
 
@@ -117,6 +117,8 @@ VITE_DOCFORGE_USE_MOCK=true
 - `VITE_DOCFORGE_USE_MOCK=false`：使用真实 FastAPI，支持加载 WorkspaceView、上传资料、执行 action 和下载 DOCX。
 - `VITE_DOCFORGE_USE_MOCK=true`：使用内置 mock 数据，不调用后端，只用于检查界面，不代表真实生成结果。
 
+默认 mock 会尽量镜像当前已接入的真实后端动作；未接入的目录编辑、重生成、返回修订等旧 demo 动作不再作为默认能力展示。
+
 ## 三栏工作台
 
 左侧：资料与项目上下文。
@@ -170,7 +172,9 @@ VITE_DOCFORGE_USE_MOCK=true
 - 外部参考资料：只用于目录、章法、语言风格和配图方式，不作为产品事实来源。
 - 自有产品资料：支持产品文档和产品截图。文档可作为产品事实依据；截图仅作为展示材料和配图候选。
 
-产品截图在 v0.1 不做 OCR、不做视觉模型解析、不作为产品事实证据、不用于推断当前版本已实现功能。
+当前支持的产品文档格式仅为 `.docx`、`.pdf`、`.md`、`.txt`、`.html`；截图格式为 `.png`、`.jpg`、`.jpeg`、`.webp`。
+
+产品截图在 v0.1 不做 OCR、不做视觉模型解析、不做截图绑定、不作为产品事实证据、不用于推断当前版本已实现功能。
 
 ## 任务推进
 
@@ -182,7 +186,7 @@ POST /api/runs/{run_id}/actions/start
 
 底部“备用入口”按钮会走同一套结构化启动动作。FastAPI 会进行任务状态校验，底层仍经过 workflow action，不允许前端跳过必要流程。
 
-FastAPI 和 Streamlit 入口复用统一 workflow 装配。FastAPI 不再创建空的 `WorkflowOrchestratorService`，而是注入完整 `WorkflowServiceRegistry`，包括资料解析、Evidence 抽取、产品理解、确认、写作、审计和 DOCX 导出相关服务。
+FastAPI 入口使用统一 workflow 装配。FastAPI 不再创建空的 `WorkflowOrchestratorService`，而是注入完整 `WorkflowServiceRegistry`，包括资料解析、Evidence 抽取、产品理解、确认、写作、审计和 DOCX 导出相关服务。
 
 产品类型和文档策略确认采用条件自动确认。自动确认和人工确认都真实调用 `submit_human_confirmation` 与 `freeze_confirmed_plan`，并在刷新后可见的确认记录中保留确认来源和采用策略。用户输入“继续”不能绕过存在冲突或风险的人工确认卡片。
 
